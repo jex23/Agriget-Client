@@ -1,0 +1,639 @@
+.admin-product-container {
+  min-height: 100vh !important;
+  background-color: #f7fafc !important;
+  color: #2d3748 !important;
+}
+
+/* Remove conflicting styles - now handled by Admin.css */
+.admin-product-content {
+  background-color: transparent !important;
+  color: #2d3748 !important;
+}
+
+.admin-product-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.admin-product-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #2d3748;
+}
+
+.admin-product-add-btn {
+  background-color: #3182ce !important;
+  color: white !important;
+  border: 2px solid #3182ce !important;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.admin-product-add-btn:hover {
+  background-color: #2c5aa0 !important;
+  border-color: #2c5aa0 !important;
+}
+
+.admin-product-table-container {
+  background: white !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
+  overflow: hidden !important;
+}
+
+.admin-product-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-product-table th {
+  background-color: #f7fafc;
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #4a5568;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.admin-product-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.admin-product-table tr:hover {
+  background-color: #f7fafc;
+}
+
+.admin-product-image {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 0.5rem;
+}
+
+.admin-product-image-placeholder {
+  width: 50px;
+  height: 50px;
+  background-color: #f0f0f0;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: #718096;
+}
+
+.admin-product-name {
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.admin-product-price {
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.admin-product-stock-low {
+  color: #e53e3e;
+  font-weight: 600;
+}
+
+.admin-product-status-active {
+  background-color: #c6f6d5;
+  color: #22543d;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.admin-product-status-inactive {
+  background-color: #fed7d7;
+  color: #742a2a;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.admin-product-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.admin-product-edit-btn,
+.admin-product-delete-btn {
+  padding: 0.5rem;
+  border: 1px solid #3182ce !important;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s;
+  background-color: #ffffff !important;
+  color: #3182ce !important;
+}
+
+.admin-product-edit-btn:hover {
+  background-color: #3182ce !important;
+  color: #ffffff !important;
+  border-color: #3182ce !important;
+}
+
+.admin-product-delete-btn:hover {
+  background-color: #e53e3e !important;
+  color: #ffffff !important;
+  border-color: #e53e3e !important;
+}
+
+.admin-product-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: #718096;
+}
+
+.admin-product-loading-spinner {
+  width: 3rem;
+  height: 3rem;
+  border: 3px solid #e2e8f0;
+  border-top: 3px solid #3182ce;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Force light mode for all Chakra UI components */
+.admin-container *,
+.admin-product-container * {
+  /* Don't force inherit on everything as it breaks components */
+}
+
+.admin-container [data-theme="dark"],
+.admin-container .chakra-ui-dark,
+.admin-product-container [data-theme="dark"],
+.admin-product-container .chakra-ui-dark {
+  background-color: #ffffff !important;
+  color: #2d3748 !important;
+}
+
+/* Additional overrides for any dark theme artifacts */
+.admin-container [data-color-mode="dark"],
+.admin-product-container [data-color-mode="dark"],
+.admin-container .css-0,
+.admin-product-container .css-0 {
+  background-color: #ffffff !important;
+  color: #2d3748 !important;
+}
+
+/* Specific border fixes for known problematic elements */
+.admin-container .admin-sidebar-nav-item,
+.admin-product-container .admin-sidebar-nav-item,
+.admin-container .admin-action-button,
+.admin-product-container .admin-action-button,
+.admin-container .chakra-button,
+.admin-product-container .chakra-button {
+  border-color: #e2e8f0 !important;
+}
+
+/* Text and label colors */
+.admin-container label,
+.admin-container span,
+.admin-container p,
+.admin-product-container label,
+.admin-product-container span,
+.admin-product-container p {
+  color: #4a5568 !important;
+}
+
+/* Override Chakra UI table styles */
+.admin-product-table-container table {
+  background-color: #ffffff !important;
+}
+
+.admin-product-table-container th {
+  background-color: #f7fafc !important;
+  color: #4a5568 !important;
+}
+
+.admin-product-table-container td {
+  background-color: #ffffff !important;
+  color: #2d3748 !important;
+}
+
+/* Override modal overlay */
+.chakra-modal__overlay {
+  background-color: rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Force white background for modal content */
+.chakra-modal__content {
+  background-color: #ffffff !important;
+  color: #2d3748 !important;
+}
+
+/* Enhanced modal styling */
+.admin-product-modal {
+  background-color: #ffffff !important;
+  color: #2d3748 !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+}
+
+.admin-product-modal-header {
+  background-color: #f7fafc !important;
+  color: #2d3748 !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.admin-product-modal-footer {
+  background-color: #f7fafc !important;
+  border-top: 1px solid #e2e8f0 !important;
+}
+
+/* Force proper styling for all input elements */
+.admin-container input,
+.admin-product-container input,
+.admin-container textarea,
+.admin-product-container textarea,
+.chakra-input,
+.chakra-textarea {
+  background-color: #ffffff !important;
+  color: #2d3748 !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 0.375rem !important;
+}
+
+.admin-container input:focus,
+.admin-product-container input:focus,
+.admin-container textarea:focus,
+.admin-product-container textarea:focus,
+.chakra-input:focus,
+.chakra-textarea:focus {
+  border-color: #3182ce !important;
+  box-shadow: 0 0 0 1px #3182ce !important;
+  background-color: #ffffff !important;
+}
+
+/* Select component styling */
+.admin-container [role="combobox"],
+.admin-product-container [role="combobox"],
+.admin-container [data-part="trigger"],
+.admin-product-container [data-part="trigger"] {
+  background-color: #ffffff !important;
+  color: #2d3748 !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 0.375rem !important;
+}
+
+.admin-container [role="combobox"]:focus,
+.admin-product-container [role="combobox"]:focus,
+.admin-container [data-part="trigger"]:focus,
+.admin-product-container [data-part="trigger"]:focus {
+  border-color: #3182ce !important;
+  box-shadow: 0 0 0 1px #3182ce !important;
+  background-color: #ffffff !important;
+}
+
+/* Select dropdown content */
+.admin-container [data-part="content"],
+.admin-product-container [data-part="content"] {
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 0.375rem !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+}
+
+.admin-container [data-part="item"],
+.admin-product-container [data-part="item"] {
+  background-color: #ffffff !important;
+  color: #2d3748 !important;
+}
+
+.admin-container [data-part="item"]:hover,
+.admin-product-container [data-part="item"]:hover,
+.admin-container [data-part="item"][data-highlighted],
+.admin-product-container [data-part="item"][data-highlighted] {
+  background-color: #f7fafc !important;
+  color: #2d3748 !important;
+}
+
+/* Button styling - Blue theme for all buttons */
+.admin-product-modal button {
+  color: inherit !important;
+}
+
+/* Override global button hover styles that set blue borders but exclude header and sidebar components */
+.admin-container button:not(.admin-header-container button):not(.admin-header-hamburger):not(.admin-header-nav-link):not(.admin-header-notification-button):not(.admin-header-view-site):not(.admin-header-user-button):not(.admin-header-dropdown-item):not(.admin-sidebar-nav-item):not(.admin-sidebar-quick-action):not(.admin-sidebar-mobile-close):hover,
+.admin-product-container button:hover {
+  border-color: #e2e8f0 !important;
+}
+
+/* Override global button focus styles that set blue outlines but exclude header and sidebar components */
+.admin-container button:not(.admin-header-container button):not(.admin-header-hamburger):not(.admin-header-nav-link):not(.admin-header-notification-button):not(.admin-header-view-site):not(.admin-header-user-button):not(.admin-header-dropdown-item):not(.admin-sidebar-nav-item):not(.admin-sidebar-quick-action):not(.admin-sidebar-mobile-close):focus,
+.admin-product-container button:focus {
+  outline: 2px solid #cbd5e0 !important;
+  outline-offset: 2px !important;
+}
+
+/* Reset button base styles for admin areas but exclude header and sidebar components */
+.admin-container button:not(.admin-header-container button):not(.admin-header-hamburger):not(.admin-header-nav-link):not(.admin-header-notification-button):not(.admin-header-view-site):not(.admin-header-user-button):not(.admin-header-dropdown-item):not(.admin-sidebar-nav-item):not(.admin-sidebar-quick-action):not(.admin-sidebar-mobile-close),
+.admin-product-container button {
+  background-color: #ffffff !important;
+  color: #4a5568 !important;
+  border: 1px solid #e2e8f0 !important;
+  transition: all 0.2s ease !important;
+}
+
+/* OVERRIDE: Ensure sidebar components never get borders */
+.admin-container .admin-sidebar-nav-item,
+.admin-container .admin-sidebar-quick-action,
+.admin-container .admin-sidebar-mobile-close,
+.admin-product-container .admin-sidebar-nav-item,
+.admin-product-container .admin-sidebar-quick-action,
+.admin-product-container .admin-sidebar-mobile-close {
+  border: none !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  background: transparent !important;
+}
+
+.admin-container .admin-sidebar-nav-item:hover,
+.admin-container .admin-sidebar-quick-action:hover,
+.admin-container .admin-sidebar-mobile-close:hover,
+.admin-product-container .admin-sidebar-nav-item:hover,
+.admin-product-container .admin-sidebar-quick-action:hover,
+.admin-product-container .admin-sidebar-mobile-close:hover {
+  border: none !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Chakra UI button overrides */
+.admin-container .chakra-button[data-colorscheme="blue"],
+.admin-product-container .chakra-button[data-colorscheme="blue"],
+.admin-container button[data-colorscheme="blue"],
+.admin-product-container button[data-colorscheme="blue"] {
+  background-color: #4a5568 !important;
+  border-color: #4a5568 !important;
+  color: #ffffff !important;
+}
+
+/* Remove blue borders from any button with blue theme */
+.admin-container button[style*="border-color: rgb(49, 130, 206)"],
+.admin-product-container button[style*="border-color: rgb(49, 130, 206)"],
+.admin-container button[style*="border-color: #3182ce"],
+.admin-product-container button[style*="border-color: #3182ce"] {
+  border-color: #e2e8f0 !important;
+}
+
+/* Gray solid buttons - no blue */
+.admin-container .admin-action-button,
+.admin-product-container .admin-action-button,
+.admin-container button[data-variant="solid"],
+.admin-product-container button[data-variant="solid"] {
+  background-color: #4a5568 !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Outline buttons */
+.admin-container button[data-variant="outline"],
+.admin-product-container button[data-variant="outline"] {
+  background-color: #ffffff !important;
+  color: #3182ce !important;
+  border: 1px solid #3182ce !important;
+}
+
+/* Hover states but exclude header and sidebar components */
+.admin-container button:not(.admin-header-container button):not(.admin-header-hamburger):not(.admin-header-nav-link):not(.admin-header-notification-button):not(.admin-header-view-site):not(.admin-header-user-button):not(.admin-header-dropdown-item):not(.admin-sidebar-nav-item):not(.admin-sidebar-quick-action):not(.admin-sidebar-mobile-close):hover,
+.admin-product-container button:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 8px rgba(49, 130, 206, 0.2) !important;
+}
+
+.admin-container .admin-action-button:hover,
+.admin-product-container .admin-action-button:hover {
+  background-color: #2d3748 !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.admin-container button[data-variant="outline"]:hover,
+.admin-product-container button[data-variant="outline"]:hover {
+  background-color: #f7fafc !important;
+  color: #2d3748 !important;
+  border: 1px solid #cbd5e0 !important;
+}
+
+/* Icon buttons specific styling */
+.admin-product-container .chakra-icon-button {
+  border: 1px solid #3182ce !important;
+  background-color: #ffffff !important;
+  color: #3182ce !important;
+}
+
+.admin-product-container .chakra-icon-button:hover {
+  background-color: #3182ce !important;
+  color: #ffffff !important;
+}
+
+/* Text styling */
+.admin-product-modal label,
+.admin-product-modal span,
+.admin-product-modal p {
+  color: #4a5568 !important;
+}
+
+.admin-product-error {
+  background-color: #fed7d7;
+  color: #742a2a;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid #feb2b2;
+}
+
+.admin-product-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.admin-product-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-product-form-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.admin-product-form-label {
+  font-weight: 600;
+  color: #4a5568;
+  font-size: 0.875rem;
+}
+
+.admin-product-form-input,
+.admin-product-form-textarea,
+.admin-product-form-select {
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.admin-product-form-input:focus,
+.admin-product-form-textarea:focus,
+.admin-product-form-select:focus {
+  outline: none;
+  border-color: #3182ce;
+  box-shadow: 0 0 0 1px #3182ce;
+}
+
+.admin-product-form-textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.admin-product-form-switch-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.admin-product-form-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.admin-product-form-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.admin-product-form-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cbd5e0;
+  transition: 0.4s;
+  border-radius: 24px;
+}
+
+.admin-product-form-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+input:checked + .admin-product-form-slider {
+  background-color: #3182ce;
+}
+
+input:checked + .admin-product-form-slider:before {
+  transform: translateX(20px);
+}
+
+.admin-product-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.admin-product-cancel-btn,
+.admin-product-submit-btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.admin-product-cancel-btn {
+  background-color: #ffffff !important;
+  color: #3182ce !important;
+  border: 1px solid #3182ce !important;
+}
+
+.admin-product-cancel-btn:hover {
+  background-color: #edf2f7 !important;
+  color: #3182ce !important;
+  border-color: #3182ce !important;
+}
+
+.admin-product-submit-btn {
+  background-color: #3182ce !important;
+  color: white !important;
+  border: 2px solid #3182ce !important;
+}
+
+.admin-product-submit-btn:hover {
+  background-color: #2c5aa0 !important;
+  border-color: #2c5aa0 !important;
+}
+
+@media (max-width: 768px) {
+  .admin-product-content {
+    padding: 1rem;
+  }
+  
+  .admin-product-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+  
+  .admin-product-title {
+    font-size: 1.5rem;
+    text-align: center;
+  }
+  
+  .admin-product-table-container {
+    overflow-x: auto;
+  }
+  
+  .admin-product-table {
+    min-width: 600px;
+  }
+  
+  .admin-product-form-row {
+    flex-direction: column;
+  }
+}

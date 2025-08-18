@@ -1,0 +1,289 @@
+.admin-cart-container {
+  min-height: 100vh !important;
+  background-color: #f7fafc !important;
+  color: #2d3748 !important;
+}
+
+/* OVERRIDE: Ensure sidebar components never get borders */
+.admin-cart-container .admin-sidebar-nav-item,
+.admin-cart-container .admin-sidebar-quick-action,
+.admin-cart-container .admin-sidebar-mobile-close {
+  border: none !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  background: transparent !important;
+}
+
+.admin-cart-container .admin-sidebar-nav-item:hover,
+.admin-cart-container .admin-sidebar-quick-action:hover,
+.admin-cart-container .admin-sidebar-mobile-close:hover {
+  border: none !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Remove conflicting styles - now handled by Admin.css */
+.admin-cart-content {
+  background-color: transparent !important;
+  color: #2d3748 !important;
+}
+
+.admin-cart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.admin-cart-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #2d3748;
+}
+
+.admin-cart-refresh-btn {
+  background-color: #3182ce !important;
+  color: white !important;
+  border: 2px solid #3182ce !important;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.admin-cart-refresh-btn:hover {
+  background-color: #2c5aa0 !important;
+  border-color: #2c5aa0 !important;
+}
+
+.admin-cart-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.admin-cart-stat-card {
+  background: white !important;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.admin-cart-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.admin-cart-stat-label {
+  color: #718096 !important;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.admin-cart-stat-number {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.admin-cart-table-container {
+  background: white !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
+  overflow: hidden !important;
+}
+
+.admin-cart-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-cart-table th {
+  background-color: #f7fafc;
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #4a5568;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.admin-cart-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.admin-cart-table tr:hover {
+  background-color: #f7fafc;
+}
+
+.admin-cart-product-image {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 0.5rem;
+}
+
+.admin-cart-product-placeholder {
+  width: 40px;
+  height: 40px;
+  background-color: #f0f0f0;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: #718096;
+}
+
+.admin-cart-product-name {
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.admin-cart-user-badge {
+  background-color: #bee3f8;
+  color: #2c5aa0;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.admin-cart-quantity {
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.admin-cart-price {
+  font-weight: 600;
+  color: #38a169;
+}
+
+.admin-cart-total-price {
+  font-weight: 700;
+  color: #2d3748;
+  font-size: 1.1rem;
+}
+
+.admin-cart-date {
+  color: #718096;
+  font-size: 0.875rem;
+}
+
+.admin-cart-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: #718096;
+}
+
+.admin-cart-loading-spinner {
+  width: 3rem;
+  height: 3rem;
+  border: 3px solid #e2e8f0;
+  border-top: 3px solid #3182ce;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+.admin-cart-empty {
+  text-align: center;
+  padding: 3rem;
+  color: #718096;
+}
+
+.admin-cart-empty-title {
+  font-size: 1.25rem;
+  color: #4a5568;
+  margin-bottom: 0.5rem;
+}
+
+.admin-cart-empty-text {
+  color: #a0aec0;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Force light mode for all Chakra UI components */
+.admin-container *,
+.admin-cart-container * {
+  /* Don't force inherit on everything as it breaks components */
+}
+
+.admin-container [data-theme="dark"],
+.admin-container .chakra-ui-dark,
+.admin-cart-container [data-theme="dark"],
+.admin-cart-container .chakra-ui-dark {
+  background-color: #ffffff !important;
+  color: #2d3748 !important;
+}
+
+/* Additional overrides for any dark theme artifacts */
+.admin-container [data-color-mode="dark"],
+.admin-cart-container [data-color-mode="dark"],
+.admin-container .css-0,
+.admin-cart-container .css-0 {
+  background-color: #ffffff !important;
+  color: #2d3748 !important;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .admin-cart-content {
+    padding: 1rem;
+  }
+  
+  .admin-cart-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+  
+  .admin-cart-title {
+    font-size: 1.5rem;
+    text-align: center;
+  }
+  
+  .admin-cart-table-container {
+    overflow-x: auto;
+  }
+  
+  .admin-cart-table {
+    min-width: 900px;
+  }
+  
+  .admin-cart-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-cart-stat-card {
+    padding: 1rem;
+  }
+  
+  .admin-cart-stat-number {
+    font-size: 1.5rem;
+  }
+  
+  .admin-cart-table {
+    min-width: 800px;
+  }
+}

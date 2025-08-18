@@ -1,0 +1,597 @@
+.admin-user-container {
+  min-height: 100vh !important;
+  background-color: #f7fafc !important;
+  color: #2d3748 !important;
+}
+
+/* Remove conflicting styles - now handled by Admin.css */
+
+.admin-user-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.admin-user-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #2d3748;
+}
+
+.admin-user-add-btn {
+  background-color: #3182ce !important;
+  color: white !important;
+  border: 2px solid #3182ce !important;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.admin-user-add-btn:hover {
+  background-color: #2c5aa0 !important;
+  border-color: #2c5aa0 !important;
+}
+
+.admin-user-table-container {
+  background: white !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
+  overflow: hidden !important;
+}
+
+.admin-user-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-user-table th {
+  background-color: #f7fafc;
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #4a5568;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.admin-user-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.admin-user-table tr:hover {
+  background-color: #f7fafc;
+}
+
+.admin-user-username {
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.admin-user-email {
+  color: #4a5568;
+}
+
+.admin-user-role-admin {
+  background-color: #bee3f8;
+  color: #2c5aa0;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.admin-user-role-user {
+  background-color: #c6f6d5;
+  color: #22543d;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.admin-user-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.admin-user-edit-btn,
+.admin-user-delete-btn {
+  padding: 0.5rem;
+  border: 1px solid #3182ce !important;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s;
+  background-color: #ffffff !important;
+  color: #3182ce !important;
+}
+
+.admin-user-edit-btn:hover {
+  background-color: #3182ce !important;
+  color: #ffffff !important;
+  border-color: #3182ce !important;
+}
+
+.admin-user-delete-btn {
+  border-color: #e53e3e !important;
+  color: #e53e3e !important;
+}
+
+.admin-user-delete-btn:hover {
+  background-color: #e53e3e !important;
+  color: #ffffff !important;
+  border-color: #e53e3e !important;
+}
+
+.admin-user-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: #718096;
+}
+
+.admin-user-loading-spinner {
+  width: 3rem;
+  height: 3rem;
+  border: 3px solid #e2e8f0;
+  border-top: 3px solid #3182ce;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Force light mode for all Chakra UI components */
+.admin-container *,
+.admin-user-container * {
+  /* Don't force inherit on everything as it breaks components */
+}
+
+.admin-container [data-theme="dark"],
+.admin-container .chakra-ui-dark,
+.admin-user-container [data-theme="dark"],
+.admin-user-container .chakra-ui-dark {
+  background-color: #ffffff !important;
+  color: #2d3748 !important;
+}
+
+/* Additional overrides for any dark theme artifacts */
+.admin-container [data-color-mode="dark"],
+.admin-user-container [data-color-mode="dark"],
+.admin-container .css-0,
+.admin-user-container .css-0 {
+  background-color: #ffffff !important;
+  color: #2d3748 !important;
+}
+
+/* Specific border fixes for known problematic elements */
+.admin-container .admin-sidebar-nav-item,
+.admin-user-container .admin-sidebar-nav-item,
+.admin-container .admin-action-button,
+.admin-user-container .admin-action-button,
+.admin-container .chakra-button,
+.admin-user-container .chakra-button {
+  border-color: #e2e8f0 !important;
+}
+
+/* Text and label colors */
+.admin-container label,
+.admin-container span,
+.admin-container p,
+.admin-user-container label,
+.admin-user-container span,
+.admin-user-container p {
+  color: #4a5568 !important;
+}
+
+/* Override Chakra UI table styles */
+.admin-user-table-container table {
+  background-color: #ffffff !important;
+}
+
+.admin-user-table-container th {
+  background-color: #f7fafc !important;
+  color: #4a5568 !important;
+}
+
+.admin-user-table-container td {
+  background-color: #ffffff !important;
+  color: #2d3748 !important;
+}
+
+/* Force proper styling for all input elements */
+.admin-container input,
+.admin-user-container input,
+.admin-container textarea,
+.admin-user-container textarea,
+.chakra-input,
+.chakra-textarea {
+  background-color: #ffffff !important;
+  color: #2d3748 !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 0.375rem !important;
+}
+
+.admin-container input:focus,
+.admin-user-container input:focus,
+.admin-container textarea:focus,
+.admin-user-container textarea:focus,
+.chakra-input:focus,
+.chakra-textarea:focus {
+  border-color: #3182ce !important;
+  box-shadow: 0 0 0 1px #3182ce !important;
+  background-color: #ffffff !important;
+}
+
+/* Button styling - Blue theme for all buttons */
+.admin-user-modal button {
+  color: inherit !important;
+}
+
+/* Override global button hover styles that set blue borders but exclude header and sidebar components */
+.admin-container button:not(.admin-header-container button):not(.admin-header-hamburger):not(.admin-header-nav-link):not(.admin-header-notification-button):not(.admin-header-view-site):not(.admin-header-user-button):not(.admin-header-dropdown-item):not(.admin-sidebar-nav-item):not(.admin-sidebar-quick-action):not(.admin-sidebar-mobile-close):hover,
+.admin-user-container button:not(.admin-header-container button):not(.admin-header-hamburger):not(.admin-header-nav-link):not(.admin-header-notification-button):not(.admin-header-view-site):not(.admin-header-user-button):not(.admin-header-dropdown-item):not(.admin-sidebar-nav-item):not(.admin-sidebar-quick-action):not(.admin-sidebar-mobile-close):hover {
+  border-color: #e2e8f0 !important;
+}
+
+/* Override global button focus styles that set blue outlines but exclude header and sidebar components */
+.admin-container button:not(.admin-header-container button):not(.admin-header-hamburger):not(.admin-header-nav-link):not(.admin-header-notification-button):not(.admin-header-view-site):not(.admin-header-user-button):not(.admin-header-dropdown-item):not(.admin-sidebar-nav-item):not(.admin-sidebar-quick-action):not(.admin-sidebar-mobile-close):focus,
+.admin-user-container button:not(.admin-header-container button):not(.admin-header-hamburger):not(.admin-header-nav-link):not(.admin-header-notification-button):not(.admin-header-view-site):not(.admin-header-user-button):not(.admin-header-dropdown-item):not(.admin-sidebar-nav-item):not(.admin-sidebar-quick-action):not(.admin-sidebar-mobile-close):focus {
+  outline: 2px solid #cbd5e0 !important;
+  outline-offset: 2px !important;
+}
+
+/* Reset button base styles for admin areas but exclude header and sidebar components */
+.admin-container button:not(.admin-header-container button):not(.admin-header-hamburger):not(.admin-header-nav-link):not(.admin-header-notification-button):not(.admin-header-view-site):not(.admin-header-user-button):not(.admin-header-dropdown-item):not(.admin-sidebar-nav-item):not(.admin-sidebar-quick-action):not(.admin-sidebar-mobile-close),
+.admin-user-container button:not(.admin-header-container button):not(.admin-header-hamburger):not(.admin-header-nav-link):not(.admin-header-notification-button):not(.admin-header-view-site):not(.admin-header-user-button):not(.admin-header-dropdown-item):not(.admin-sidebar-nav-item):not(.admin-sidebar-quick-action):not(.admin-sidebar-mobile-close) {
+  background-color: #ffffff !important;
+  color: #4a5568 !important;
+  border: 1px solid #e2e8f0 !important;
+  transition: all 0.2s ease !important;
+}
+
+/* OVERRIDE: Ensure sidebar components never get borders */
+.admin-container .admin-sidebar-nav-item,
+.admin-container .admin-sidebar-quick-action,
+.admin-container .admin-sidebar-mobile-close,
+.admin-user-container .admin-sidebar-nav-item,
+.admin-user-container .admin-sidebar-quick-action,
+.admin-user-container .admin-sidebar-mobile-close {
+  border: none !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  background: transparent !important;
+}
+
+.admin-container .admin-sidebar-nav-item:hover,
+.admin-container .admin-sidebar-quick-action:hover,
+.admin-container .admin-sidebar-mobile-close:hover,
+.admin-user-container .admin-sidebar-nav-item:hover,
+.admin-user-container .admin-sidebar-quick-action:hover,
+.admin-user-container .admin-sidebar-mobile-close:hover {
+  border: none !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Ultimate override: Target any potential global button styles from toaster */
+body:has(.admin-user-container) [data-sidebar="admin"] button,
+body:has(.admin-user-container) [data-sidebar="admin"] .chakra-button {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  color: #4a5568 !important;
+}
+
+body:has(.admin-user-container) [data-sidebar="admin"] button:hover,
+body:has(.admin-user-container) [data-sidebar="admin"] .chakra-button:hover {
+  background: #f7fafc !important;
+  background-color: #f7fafc !important;
+  border: none !important;
+  color: #4a5568 !important;
+}
+
+/* Fix AdminHeader notification modal buttons affected by toaster global styles */
+.admin-user-container .admin-header-container button,
+.admin-user-container .admin-header-container .chakra-button {
+  background-color: initial !important;
+  color: initial !important;
+  border: initial !important;
+}
+
+/* Specifically fix the "View All" button in notification dropdown */
+.admin-user-container .admin-header-notification-button + div button,
+.admin-user-container .admin-header-notifications button {
+  background-color: transparent !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #4a5568 !important;
+}
+
+.admin-user-container .admin-header-notification-button + div button:hover,
+.admin-user-container .admin-header-notifications button:hover {
+  background-color: #f7fafc !important;
+  border-color: #cbd5e0 !important;
+  color: #2b6cb0 !important;
+}
+
+/* Chakra UI button overrides */
+.admin-container .chakra-button[data-colorscheme="blue"],
+.admin-user-container .chakra-button[data-colorscheme="blue"],
+.admin-container button[data-colorscheme="blue"],
+.admin-user-container button[data-colorscheme="blue"] {
+  background-color: #4a5568 !important;
+  border-color: #4a5568 !important;
+  color: #ffffff !important;
+}
+
+/* Remove blue borders from any button with blue theme */
+.admin-container button[style*="border-color: rgb(49, 130, 206)"],
+.admin-user-container button[style*="border-color: rgb(49, 130, 206)"],
+.admin-container button[style*="border-color: #3182ce"],
+.admin-user-container button[style*="border-color: #3182ce"] {
+  border-color: #e2e8f0 !important;
+}
+
+/* Gray solid buttons - no blue */
+.admin-container .admin-action-button,
+.admin-user-container .admin-action-button,
+.admin-container button[data-variant="solid"],
+.admin-user-container button[data-variant="solid"] {
+  background-color: #4a5568 !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Outline buttons */
+.admin-container button[data-variant="outline"],
+.admin-user-container button[data-variant="outline"] {
+  background-color: #ffffff !important;
+  color: #3182ce !important;
+  border: 1px solid #3182ce !important;
+}
+
+/* Hover states but exclude header components */
+.admin-container button:not(.admin-header-container button):not(.admin-header-hamburger):not(.admin-header-nav-link):not(.admin-header-notification-button):not(.admin-header-view-site):not(.admin-header-user-button):not(.admin-header-dropdown-item):hover,
+.admin-user-container button:not(.admin-header-container button):not(.admin-header-hamburger):not(.admin-header-nav-link):not(.admin-header-notification-button):not(.admin-header-view-site):not(.admin-header-user-button):not(.admin-header-dropdown-item):hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 8px rgba(49, 130, 206, 0.2) !important;
+}
+
+.admin-container .admin-action-button:hover,
+.admin-user-container .admin-action-button:hover {
+  background-color: #2d3748 !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.admin-container button[data-variant="outline"]:hover,
+.admin-user-container button[data-variant="outline"]:hover {
+  background-color: #f7fafc !important;
+  color: #2d3748 !important;
+  border: 1px solid #cbd5e0 !important;
+}
+
+/* Icon buttons specific styling */
+.admin-user-container .chakra-icon-button {
+  border: 1px solid #3182ce !important;
+  background-color: #ffffff !important;
+  color: #3182ce !important;
+}
+
+.admin-user-container .chakra-icon-button:hover {
+  background-color: #3182ce !important;
+  color: #ffffff !important;
+}
+
+.admin-user-error {
+  background-color: #fed7d7;
+  color: #742a2a;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid #feb2b2;
+}
+
+/* Override modal overlay */
+.chakra-modal__overlay {
+  background-color: rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Force white background for modal content */
+.chakra-modal__content {
+  background-color: #ffffff !important;
+  color: #2d3748 !important;
+}
+
+/* Enhanced modal styling */
+.admin-user-modal {
+  background-color: #ffffff !important;
+  color: #2d3748 !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+}
+
+.admin-user-modal-header {
+  background-color: #f7fafc !important;
+  color: #2d3748 !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.admin-user-modal-footer {
+  background-color: #f7fafc !important;
+  border-top: 1px solid #e2e8f0 !important;
+}
+
+/* Select component styling */
+.admin-container [role="combobox"],
+.admin-user-container [role="combobox"],
+.admin-container [data-part="trigger"],
+.admin-user-container [data-part="trigger"] {
+  background-color: #ffffff !important;
+  color: #2d3748 !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 0.375rem !important;
+}
+
+.admin-container [role="combobox"]:focus,
+.admin-user-container [role="combobox"]:focus,
+.admin-container [data-part="trigger"]:focus,
+.admin-user-container [data-part="trigger"]:focus {
+  border-color: #3182ce !important;
+  box-shadow: 0 0 0 1px #3182ce !important;
+  background-color: #ffffff !important;
+}
+
+/* Select dropdown content */
+.admin-container [data-part="content"],
+.admin-user-container [data-part="content"] {
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 0.375rem !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+}
+
+.admin-container [data-part="item"],
+.admin-user-container [data-part="item"] {
+  background-color: #ffffff !important;
+  color: #2d3748 !important;
+}
+
+.admin-container [data-part="item"]:hover,
+.admin-user-container [data-part="item"]:hover,
+.admin-container [data-part="item"][data-highlighted],
+.admin-user-container [data-part="item"][data-highlighted] {
+  background-color: #f7fafc !important;
+  color: #2d3748 !important;
+}
+
+/* Text styling */
+.admin-user-modal label,
+.admin-user-modal span,
+.admin-user-modal p {
+  color: #4a5568 !important;
+}
+
+.admin-user-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.admin-user-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-user-form-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.admin-user-form-label {
+  font-weight: 600;
+  color: #4a5568;
+  font-size: 0.875rem;
+}
+
+.admin-user-form-input,
+.admin-user-form-select {
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.admin-user-form-input:focus,
+.admin-user-form-select:focus {
+  outline: none;
+  border-color: #3182ce;
+  box-shadow: 0 0 0 1px #3182ce;
+}
+
+.admin-user-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.admin-user-cancel-btn,
+.admin-user-submit-btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.admin-user-cancel-btn {
+  background-color: #ffffff !important;
+  color: #3182ce !important;
+  border: 1px solid #3182ce !important;
+}
+
+.admin-user-cancel-btn:hover {
+  background-color: #edf2f7 !important;
+  color: #3182ce !important;
+  border-color: #3182ce !important;
+}
+
+.admin-user-submit-btn {
+  background-color: #3182ce !important;
+  color: white !important;
+  border: 2px solid #3182ce !important;
+}
+
+.admin-user-submit-btn:hover {
+  background-color: #2c5aa0 !important;
+  border-color: #2c5aa0 !important;
+}
+
+@media (max-width: 768px) {
+  .admin-main-content {
+    padding: 0 !important;
+  }
+  
+  .admin-user-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+  
+  .admin-user-title {
+    font-size: 1.5rem;
+    text-align: center;
+  }
+  
+  .admin-user-table-container {
+    overflow-x: auto;
+  }
+  
+  .admin-user-table {
+    min-width: 600px;
+  }
+  
+  .admin-user-form-row {
+    flex-direction: column;
+  }
+}
