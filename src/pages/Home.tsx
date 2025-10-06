@@ -12,17 +12,14 @@ import {
   Input,
   Badge,
   IconButton,
-  Grid,
   Image,
 } from '@chakra-ui/react';
 import { FiSearch, FiGrid, FiList, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import slide1 from '../images/1.png';
 import slide2 from '../images/2.png';
 import slide3 from '../images/3.png';
-import { useNavigate } from 'react-router-dom';
 import type { User } from '../types/auth.js';
 import authService from '../services/authService.js';
-import { ROUTES } from '../constants/routes.js';
 import Header from '../components/Header.js';
 import Footer from '../components/Footer.js';
 import Sidebar from '../components/Sidebar.js';
@@ -46,7 +43,6 @@ const Home: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const navigate = useNavigate();
 
   // Slideshow state
   const slides = [slide1, slide2, slide3];
@@ -278,8 +274,8 @@ const Home: React.FC = () => {
 
 
       {/* Main Content */}
-      <Container maxW="container.xl" py={8}>
-        <Flex gap={8} align="flex-start" bg="transparent">
+      <Container maxW="container.xl" py={{ base: 4, md: 8 }} px={{ base: 4, md: 6 }}>
+        <Flex gap={{ base: 4, md: 8 }} align="flex-start" bg="transparent" direction={{ base: "column", lg: "row" }}>
           <Sidebar
             categories={categories}
             selectedCategory={selectedCategory}
@@ -292,9 +288,9 @@ const Home: React.FC = () => {
           
           <VStack gap={6} align="stretch" flex={1}>
             {/* Search and Filter Bar */}
-            <Box bg="white" borderRadius="xl" shadow="sm" border="1px solid" borderColor="gray.200" p={6}>
-              <Flex gap={4} align="center" justify="space-between" wrap="wrap">
-                <Box position="relative" maxW="400px" flex={1}>
+            <Box bg="white" borderRadius={{ base: "lg", md: "xl" }} shadow="sm" border="1px solid" borderColor="gray.200" p={{ base: 4, md: 6 }}>
+              <Flex gap={{ base: 3, md: 4 }} align="center" justify="space-between" wrap="wrap">
+                <Box position="relative" maxW={{ base: "100%", md: "400px" }} flex={1} w={{ base: "100%", md: "auto" }}>
                   <Box
                     position="absolute"
                     left={3}
@@ -310,23 +306,26 @@ const Home: React.FC = () => {
                     placeholder="Search products..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    borderRadius="lg"
+                    borderRadius={{ base: "md", md: "lg" }}
                     bg="gray.50"
                     border="none"
                     pl="40px"
+                    h={{ base: "44px", md: "40px" }}
+                    fontSize={{ base: "16px", md: "14px" }}
                     color="gray.900"
                     _placeholder={{ color: "gray.500" }}
                     _focus={{ bg: "white", shadow: "sm" }}
                   />
                 </Box>
                 
-                <HStack gap={2}>
+                <HStack gap={2} mt={{ base: 2, md: 0 }} w={{ base: "100%", md: "auto" }} justify={{ base: "center", md: "flex-end" }}>
                   <IconButton
                     aria-label="Grid view"
                     variant={viewMode === 'grid' ? 'solid' : 'ghost'}
                     colorScheme="blue"
                     onClick={() => setViewMode('grid')}
-                    borderRadius="lg"
+                    borderRadius={{ base: "md", md: "lg" }}
+                    size={{ base: "md", md: "md" }}
                     color={viewMode === 'grid' ? 'white' : 'blue.500'}
                     bg={viewMode === 'grid' ? 'blue.500' : 'transparent'}
                     _hover={{ bg: viewMode === 'grid' ? 'blue.600' : 'blue.50' }}
@@ -338,7 +337,8 @@ const Home: React.FC = () => {
                     variant={viewMode === 'list' ? 'solid' : 'ghost'}
                     colorScheme="blue"
                     onClick={() => setViewMode('list')}
-                    borderRadius="lg"
+                    borderRadius={{ base: "md", md: "lg" }}
+                    size={{ base: "md", md: "md" }}
                     color={viewMode === 'list' ? 'white' : 'blue.500'}
                     bg={viewMode === 'list' ? 'blue.500' : 'transparent'}
                     _hover={{ bg: viewMode === 'list' ? 'blue.600' : 'blue.50' }}
@@ -350,18 +350,18 @@ const Home: React.FC = () => {
             </Box>
 
             {/* Category and Results Header */}
-            <Flex justify="space-between" align="center">
+            <Flex justify="space-between" align={{ base: "flex-start", md: "center" }} direction={{ base: "column", md: "row" }} gap={{ base: 3, md: 0 }}>
               <VStack align="start" gap={1}>
-                <Heading size="lg" color="gray.800">
+                <Heading size={{ base: "md", md: "lg" }} color="gray.800">
                   {selectedCategory === 'All' ? 'All Products' : selectedCategory}
                 </Heading>
-                <Text color="gray.600" fontSize="sm">
+                <Text color="gray.600" fontSize={{ base: "xs", md: "sm" }}>
                   {filteredProducts.length} products found
                 </Text>
               </VStack>
               
               {searchQuery && (
-                <Badge colorScheme="blue" fontSize="sm" px={3} py={1} borderRadius="full">
+                <Badge colorScheme="blue" fontSize={{ base: "xs", md: "sm" }} px={3} py={1} borderRadius="full" alignSelf={{ base: "flex-start", md: "center" }}>
                   Searching: "{searchQuery}"
                 </Badge>
               )}
@@ -369,32 +369,32 @@ const Home: React.FC = () => {
 
             {/* Products Grid */}
             {loading ? (
-              <Box bg="white" borderRadius="xl" shadow="sm" textAlign="center" py={12} px={6}>
+              <Box bg="white" borderRadius={{ base: "lg", md: "xl" }} shadow="sm" textAlign="center" py={{ base: 8, md: 12 }} px={{ base: 4, md: 6 }}>
                 <VStack gap={4}>
-                  <Box fontSize="4xl">🔄</Box>
-                  <Text color="gray.600">Loading amazing products...</Text>
+                  <Box fontSize={{ base: "3xl", md: "4xl" }}>🔄</Box>
+                  <Text color="gray.600" fontSize={{ base: "sm", md: "md" }}>Loading amazing products...</Text>
                 </VStack>
               </Box>
             ) : error ? (
-              <Box bg="white" borderRadius="xl" shadow="sm" border="1px solid" borderColor="red.200" textAlign="center" py={12} px={6}>
+              <Box bg="white" borderRadius={{ base: "lg", md: "xl" }} shadow="sm" border="1px solid" borderColor="red.200" textAlign="center" py={{ base: 8, md: 12 }} px={{ base: 4, md: 6 }}>
                 <VStack gap={4}>
-                  <Box fontSize="4xl">⚠️</Box>
-                  <Text color="red.500" fontWeight="600">Error: {error}</Text>
-                  <Button onClick={() => window.location.reload()} colorScheme="red" variant="outline">
+                  <Box fontSize={{ base: "3xl", md: "4xl" }}>⚠️</Box>
+                  <Text color="red.500" fontWeight="600" fontSize={{ base: "sm", md: "md" }}>Error: {error}</Text>
+                  <Button onClick={() => window.location.reload()} colorScheme="red" variant="outline" size={{ base: "sm", md: "md" }}>
                     Try Again
                   </Button>
                 </VStack>
               </Box>
             ) : filteredProducts.length === 0 ? (
-              <Box bg="white" borderRadius="xl" shadow="sm" textAlign="center" py={12} px={6}>
+              <Box bg="white" borderRadius={{ base: "lg", md: "xl" }} shadow="sm" textAlign="center" py={{ base: 8, md: 12 }} px={{ base: 4, md: 6 }}>
                 <VStack gap={4}>
-                  <Box fontSize="4xl">🔍</Box>
-                  <Text color="gray.600" fontSize="lg">No products found</Text>
-                  <Text color="gray.500" fontSize="sm">
+                  <Box fontSize={{ base: "3xl", md: "4xl" }}>🔍</Box>
+                  <Text color="gray.600" fontSize={{ base: "md", md: "lg" }}>No products found</Text>
+                  <Text color="gray.500" fontSize={{ base: "xs", md: "sm" }}>
                     Try adjusting your search or category filter
                   </Text>
                   {searchQuery && (
-                    <Button onClick={() => setSearchQuery('')} variant="outline" size="sm">
+                    <Button onClick={() => setSearchQuery('')} variant="outline" size={{ base: "sm", md: "sm" }}>
                       Clear Search
                     </Button>
                   )}
@@ -402,17 +402,32 @@ const Home: React.FC = () => {
               </Box>
             ) : (
               <SimpleGrid 
-                columns={{ base: 1, md: viewMode === 'grid' ? 2 : 1, lg: viewMode === 'grid' ? 3 : 1 }} 
-                gap={6}
+                columns={{ 
+                  base: viewMode === 'grid' ? 1 : 1, 
+                  sm: viewMode === 'grid' ? 2 : 1, 
+                  md: viewMode === 'grid' ? 2 : 1, 
+                  lg: viewMode === 'grid' ? 3 : 1,
+                  xl: viewMode === 'grid' ? 4 : 1
+                }} 
+                gap={{ base: 4, sm: 5, md: 6 }}
                 justifyItems="center"
                 w="full"
+                px={{ base: 2, sm: 4, md: 0 }}
               >
                 {filteredProducts.map(product => (
                   <Box
                     key={product.id}
                     w="full"
-                    maxW={{ base: viewMode === 'list' ? "400px" : "none", md: "none" }}
+                    maxW={{ 
+                      base: "100%", 
+                      sm: viewMode === 'list' ? "100%" : "280px",
+                      md: viewMode === 'list' ? "100%" : "300px",
+                      lg: viewMode === 'list' ? "100%" : "280px",
+                      xl: viewMode === 'list' ? "100%" : "300px"
+                    }}
                     mx="auto"
+                    display="flex"
+                    justifyContent="center"
                   >
                     <Product
                       product={product}

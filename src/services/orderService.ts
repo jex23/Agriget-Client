@@ -74,6 +74,19 @@ class OrderService {
       body: JSON.stringify({ order_status: 'canceled' }),
     });
   }
+
+  async getPendingOrdersCount(): Promise<{ count: number }> {
+    // Get all orders and filter for pending ones
+    // This could be optimized with a specific API endpoint if needed
+    try {
+      const allOrders = await this.getAllOrders();
+      const pendingCount = allOrders.filter(order => order.order_status === 'pending').length;
+      return { count: pendingCount };
+    } catch (error) {
+      console.error('Error fetching pending orders count:', error);
+      return { count: 0 };
+    }
+  }
 }
 
 export const orderService = new OrderService();

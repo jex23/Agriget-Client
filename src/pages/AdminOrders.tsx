@@ -43,6 +43,7 @@ const AdminOrders: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarState, setSidebarState] = useState({ isExpanded: false, isMobile: window.innerWidth <= 1024 });
   const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const navigate = useNavigate();
   
   const toaster = createToaster({
@@ -52,6 +53,7 @@ const AdminOrders: React.FC = () => {
   const statusOptions = createListCollection({
     items: [
       { label: 'All Orders', value: 'all' },
+      { label: '🚨 Needs Processing', value: 'needs_processing' },
       { label: 'Pending', value: 'pending' },
       { label: 'Processing', value: 'processing' },
       { label: 'On Delivery', value: 'on_delivery' },
@@ -115,6 +117,9 @@ const AdminOrders: React.FC = () => {
       setLoading(true);
       const ordersData = await orderService.getAllOrders();
       setOrders(ordersData);
+      
+      // Trigger sidebar refresh to update pending count
+      setRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error('Error fetching orders:', error);
       setError(error instanceof Error ? error.message : 'Failed to fetch orders');
@@ -123,12 +128,75 @@ const AdminOrders: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    if (selectedStatus === 'all') {
-      setFilteredOrders(orders);
-    } else {
-      setFilteredOrders(orders.filter(order => order.order_status === selectedStatus));
+  const getOrderPriority = (order: Order): number => {
+    // Priority scoring system (lower number = higher priority)
+    let priority = 0;
+    
+    // Order status priority
+    switch (order.order_status) {
+      case 'pending':
+        priority += 1; // Highest priority - new orders need immediate attention
+        break;
+      case 'processing':
+        priority += 2; // Second priority - already being worked on
+        break;
+      case 'on_delivery':
+        priority += 3; // Third priority - in transit
+        break;
+      case 'completed':
+        priority += 5; // Lower priority - already done
+        break;
+      case 'canceled':
+        priority += 6; // Lowest priority - canceled orders
+        break;
     }
+    
+    // Payment status priority modifier
+    if (order.payment_status === 'pending' && order.order_status !== 'canceled') {
+      priority -= 0.5; // Boost priority for unpaid orders that need attention
+    }
+    
+    // Age priority modifier (older orders get higher priority)
+    const orderAge = Date.now() - new Date(order.created_at).getTime();
+    const daysSinceCreated = orderAge / (1000 * 60 * 60 * 24);
+    if (daysSinceCreated > 3) {
+      priority -= 0.3; // Boost priority for orders older than 3 days
+    }
+    
+    return priority;
+  };
+
+  const sortOrdersByPriority = (ordersList: Order[]): Order[] => {
+    return [...ordersList].sort((a, b) => {
+      const priorityA = getOrderPriority(a);
+      const priorityB = getOrderPriority(b);
+      
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB; // Lower priority score comes first
+      }
+      
+      // If same priority, sort by creation date (newest first)
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  };
+
+  useEffect(() => {
+    let filtered: Order[];
+    
+    if (selectedStatus === 'all') {
+      filtered = orders;
+    } else if (selectedStatus === 'needs_processing') {
+      // Filter orders that need immediate processing
+      filtered = orders.filter(order => 
+        isHighPriorityOrder(order) || isUrgentOrder(order)
+      );
+    } else {
+      filtered = orders.filter(order => order.order_status === selectedStatus);
+    }
+    
+    // Always sort by priority regardless of filter
+    const sortedFiltered = sortOrdersByPriority(filtered);
+    setFilteredOrders(sortedFiltered);
   }, [orders, selectedStatus]);
 
 
@@ -155,6 +223,11 @@ const AdminOrders: React.FC = () => {
         type: 'success',
         duration: 3000,
       });
+      
+      // Trigger sidebar refresh if order status changed from/to pending
+      if (newStatus === 'pending' || orders.find(o => o.id === orderId)?.order_status === 'pending') {
+        setRefreshTrigger(prev => prev + 1);
+      }
     } catch (error) {
       console.error('Error updating order status:', error);
       toaster.create({
@@ -246,6 +319,51 @@ const AdminOrders: React.FC = () => {
     });
   };
 
+  const isHighPriorityOrder = (order: Order): boolean => {
+    // Orders that need immediate processing
+    if (order.order_status === 'pending') return true;
+    if (order.order_status === 'processing' && order.payment_status === 'pending') return true;
+    
+    // Older orders that need attention
+    const orderAge = Date.now() - new Date(order.created_at).getTime();
+    const daysSinceCreated = orderAge / (1000 * 60 * 60 * 24);
+    if (daysSinceCreated > 3 && ['pending', 'processing'].includes(order.order_status)) return true;
+    
+    return false;
+  };
+
+  const isUrgentOrder = (order: Order): boolean => {
+    // Very urgent orders
+    if (order.order_status === 'pending' && order.payment_status === 'pending') {
+      const orderAge = Date.now() - new Date(order.created_at).getTime();
+      const daysSinceCreated = orderAge / (1000 * 60 * 60 * 24);
+      return daysSinceCreated > 1; // Pending orders older than 1 day
+    }
+    return false;
+  };
+
+  const getPriorityIndicator = (order: Order) => {
+    if (isUrgentOrder(order)) {
+      return {
+        icon: '🚨',
+        text: 'URGENT',
+        color: 'red',
+        bg: 'red.50',
+        borderColor: 'red.200'
+      };
+    }
+    if (isHighPriorityOrder(order)) {
+      return {
+        icon: '⚠️',
+        text: 'High Priority',
+        color: 'orange',
+        bg: 'orange.50',
+        borderColor: 'orange.200'
+      };
+    }
+    return null;
+  };
+
   if (!user) {
     return null;
   }
@@ -257,6 +375,7 @@ const AdminOrders: React.FC = () => {
           isOpen={isSidebarOpen}
           onToggle={handleSidebarToggle}
           onSidebarStateChange={handleSidebarStateChange}
+          refreshTrigger={refreshTrigger}
         />
         
         <AdminHeader 
@@ -287,6 +406,7 @@ const AdminOrders: React.FC = () => {
         isOpen={isSidebarOpen}
         onToggle={handleSidebarToggle}
         onSidebarStateChange={handleSidebarStateChange}
+        refreshTrigger={refreshTrigger}
       />
       
       <AdminHeader 
@@ -298,43 +418,49 @@ const AdminOrders: React.FC = () => {
       />
       
       <Box className={getContentClass()}>
-          <Container maxW="container.xl" py={8}>
-            <VStack align="stretch" gap={6}>
+          <Container maxW="container.xl" py={{ base: 4, md: 6, lg: 8 }} px={{ base: 4, md: 6 }}>
+            <VStack align="stretch" gap={{ base: 4, md: 6 }}>
               <Box>
-                <HStack gap={4} align="center" mb={2}>
+                <HStack gap={{ base: 2, md: 4 }} align="center" mb={{ base: 2, md: 2 }} wrap="wrap">
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size={{ base: "xs", md: "sm" }}
                     onClick={() => navigate(ROUTES.ADMIN)}
                     className="back-to-admin-btn"
                   >
-                    <HStack gap={2}>
-                      <Text>←</Text>
-                      <Text>Back to Dashboard</Text>
+                    <HStack gap={{ base: 1, md: 2 }}>
+                      <Text fontSize={{ base: "sm", md: "md" }}>←</Text>
+                      <Text fontSize={{ base: "sm", md: "md" }} display={{ base: "none", sm: "block" }}>Back to Dashboard</Text>
+                      <Text fontSize={{ base: "sm", md: "md" }} display={{ base: "block", sm: "none" }}>Back</Text>
                     </HStack>
                   </Button>
                 </HStack>
-                <Heading size="lg" color="blue.700" mb={2}>
+                <Heading size={{ base: "md", md: "lg" }} color="blue.700" mb={2}>
                   Order Management
                 </Heading>
-                <Text color="gray.600">
+                <Text color="gray.600" fontSize={{ base: "sm", md: "md" }}>
                   Manage and process customer orders
                 </Text>
               </Box>
 
               <VStack align="stretch" gap={4}>
                 <Box>
-                  <Text fontSize="sm" color="gray.600" mb={3}>Filter by Status:</Text>
+                  <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={{ base: 2, md: 3 }}>Filter by Status:</Text>
                   <Box className="admin-order-tabs-container">
-                    <HStack gap={2} wrap="wrap">
+                    <HStack gap={{ base: 1, sm: 2 }} wrap="wrap" justify={{ base: "center", md: "flex-start" }}>
                       {statusOptions.items.map((tab) => (
                         <Button
                           key={tab.value}
-                          size="sm"
+                          size={{ base: "xs", sm: "sm" }}
                           variant={selectedStatus === tab.value ? "solid" : "outline"}
                           colorScheme={selectedStatus === tab.value ? "blue" : "gray"}
                           className={`admin-order-tab ${selectedStatus === tab.value ? 'admin-order-tab-active' : 'admin-order-tab-inactive'}`}
                           onClick={() => setSelectedStatus(tab.value)}
+                          fontSize={{ base: "xs", sm: "sm" }}
+                          px={{ base: 2, sm: 4 }}
+                          py={{ base: 1, sm: 2 }}
+                          whiteSpace="nowrap"
+                          flexShrink={0}
                         >
                           {tab.label}
                         </Button>
@@ -342,26 +468,52 @@ const AdminOrders: React.FC = () => {
                     </HStack>
                   </Box>
                 </Box>
-                <Flex justify="flex-end">
-                  <Text fontSize="sm" color="gray.500">
+                <Flex direction={{ base: "column", lg: "row" }} justify="space-between" align={{ base: "stretch", lg: "center" }} gap={{ base: 3, lg: 4 }}>
+                  <VStack align={{ base: "center", lg: "flex-start" }} gap={3}>
+                    <HStack gap={{ base: 2, md: 4 }} wrap="wrap" justify={{ base: "center", lg: "flex-start" }}>
+                      {/* Priority Summary */}
+                      <Badge colorScheme="red" size={{ base: "sm", md: "md" }} px={{ base: 2, md: 3 }} py={1} borderRadius="full">
+                        <HStack gap={1}>
+                          <Text>🚨</Text>
+                          <Text display={{ base: "none", sm: "block" }}>Urgent:</Text>
+                          <Text fontWeight="bold">{filteredOrders.filter(isUrgentOrder).length}</Text>
+                        </HStack>
+                      </Badge>
+                      <Badge colorScheme="orange" size={{ base: "sm", md: "md" }} px={{ base: 2, md: 3 }} py={1} borderRadius="full">
+                        <HStack gap={1}>
+                          <Text>⚠️</Text>
+                          <Text display={{ base: "none", sm: "block" }}>High Priority:</Text>
+                          <Text fontWeight="bold">{filteredOrders.filter(isHighPriorityOrder).length}</Text>
+                        </HStack>
+                      </Badge>
+                      <Badge colorScheme="blue" size={{ base: "sm", md: "md" }} px={{ base: 2, md: 3 }} py={1} borderRadius="full">
+                        <HStack gap={1}>
+                          <Text>📋</Text>
+                          <Text display={{ base: "none", sm: "block" }}>Pending:</Text>
+                          <Text fontWeight="bold">{filteredOrders.filter(order => order.order_status === 'pending').length}</Text>
+                        </HStack>
+                      </Badge>
+                    </HStack>
+                  </VStack>
+                  <Text fontSize={{ base: "xs", md: "sm" }} color="gray.500" textAlign={{ base: "center", lg: "right" }} mt={{ base: 2, lg: 0 }}>
                     Showing {filteredOrders.length} of {orders.length} orders
                   </Text>
                 </Flex>
               </VStack>
 
               {error && (
-                <Box bg="red.50" p={4} borderRadius="lg" border="1px solid" borderColor="red.200">
-                  <Text color="red.600" fontWeight="medium">Error: {error}</Text>
+                <Box bg="red.50" p={{ base: 3, md: 4 }} borderRadius="lg" border="1px solid" borderColor="red.200">
+                  <Text color="red.600" fontWeight="medium" fontSize={{ base: "sm", md: "md" }}>Error: {error}</Text>
                 </Box>
               )}
 
               {filteredOrders.length === 0 ? (
-                <Box bg="white" p={8} borderRadius="lg" shadow="md">
-                  <VStack py={8}>
-                    <Text fontSize="xl" color="gray.500" mb={4}>
+                <Box bg="white" p={{ base: 6, md: 8 }} borderRadius="lg" shadow="md">
+                  <VStack py={{ base: 6, md: 8 }}>
+                    <Text fontSize={{ base: "lg", md: "xl" }} color="gray.500" mb={4}>
                       📋 No orders found
                     </Text>
-                    <Text color="gray.400" textAlign="center" mb={6}>
+                    <Text color="gray.400" textAlign="center" mb={6} fontSize={{ base: "sm", md: "md" }} px={{ base: 2, md: 0 }}>
                       {orders.length === 0 
                         ? "No orders have been placed yet."
                         : `No orders found with status "${selectedStatus === 'all' ? 'All' : formatStatus(selectedStatus)}". Try changing the filter.`
@@ -371,12 +523,52 @@ const AdminOrders: React.FC = () => {
                 </Box>
               ) : (
                 <VStack gap={4} align="stretch">
-                  {filteredOrders.map((order) => (
-                    <Box key={order.id} bg="white" p={6} shadow="md" borderRadius="lg" className="admin-order-card">
-                      <Flex direction={{ base: "column", lg: "row" }} gap={6} align="stretch">
+                  {filteredOrders.map((order) => {
+                    const priorityIndicator = getPriorityIndicator(order);
+                    
+                    return (
+                    <Box 
+                      key={order.id} 
+                      bg={priorityIndicator ? priorityIndicator.bg : "white"}
+                      p={{ base: 4, md: 5, lg: 6 }} 
+                      shadow={priorityIndicator ? "lg" : "md"}
+                      borderRadius={{ base: "md", md: "lg" }} 
+                      border={priorityIndicator ? "2px solid" : "1px solid"}
+                      borderColor={priorityIndicator ? priorityIndicator.borderColor : "gray.200"}
+                      className="admin-order-card"
+                      position="relative"
+                      overflow="hidden"
+                    >
+                      {/* Priority Indicator Badge */}
+                      {priorityIndicator && (
+                        <Box
+                          position="absolute"
+                          top={{ base: 2, md: 3 }}
+                          right={{ base: 2, md: 3 }}
+                          zIndex={2}
+                        >
+                          <Badge 
+                            colorScheme={priorityIndicator.color}
+                            fontSize={{ base: "2xs", md: "xs" }}
+                            fontWeight="bold"
+                            px={{ base: 2, md: 3 }}
+                            py={1}
+                            borderRadius="full"
+                            textTransform="uppercase"
+                            letterSpacing="wide"
+                          >
+                            <HStack gap={1}>
+                              <Text>{priorityIndicator.icon}</Text>
+                              <Text display={{ base: "none", sm: "block" }}>{priorityIndicator.text}</Text>
+                            </HStack>
+                          </Badge>
+                        </Box>
+                      )}
+                      
+                      <Flex direction={{ base: "column", md: "row" }} gap={{ base: 4, md: 6 }} align="stretch">
                         {/* Left Section - Order Info */}
-                        <Flex gap={4} flex={1} align="start">
-                          <Box w={{ base: "80px", md: "100px" }} h={{ base: "80px", md: "100px" }} flexShrink={0}>
+                        <Flex gap={{ base: 3, md: 4 }} flex={1} align="start">
+                          <Box w={{ base: "70px", sm: "80px", md: "100px" }} h={{ base: "70px", sm: "80px", md: "100px" }} flexShrink={0}>
                             {order.product_image ? (
                               <Image
                                 src={API_ENDPOINTS.image(order.product_image)}
@@ -384,70 +576,70 @@ const AdminOrders: React.FC = () => {
                                 w="full"
                                 h="full"
                                 objectFit="cover"
-                                borderRadius="lg"
+                                borderRadius={{ base: "md", md: "lg" }}
                               />
                             ) : (
                               <Box
                                 w="full"
                                 h="full"
                                 bg="gray.100"
-                                borderRadius="lg"
+                                borderRadius={{ base: "md", md: "lg" }}
                                 display="flex"
                                 alignItems="center"
                                 justifyContent="center"
-                                fontSize="2xl"
+                                fontSize={{ base: "xl", md: "2xl" }}
                               >
                                 🏗️
                               </Box>
                             )}
                           </Box>
-                          <VStack align="start" flex={1} gap={2} justify="start">
-                            <Text fontWeight="bold" fontSize="lg" color="gray.800">
+                          <VStack align="start" flex={1} gap={{ base: 1, md: 2 }} justify="start" minW={0}>
+                            <Text fontWeight="bold" fontSize={{ base: "md", md: "lg" }} color="gray.800" truncate>
                               {order.product_name || 'Product'}
                             </Text>
-                            <HStack gap={4} wrap="wrap">
-                              <Text fontSize="sm" color="gray.600">
+                            <Flex direction={{ base: "column", sm: "row" }} gap={{ base: 1, sm: 4 }} wrap="wrap">
+                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">
                                 Qty: <Text as="span" fontWeight="medium">{order.quantity}</Text>
                               </Text>
-                              <Text fontSize="lg" fontWeight="bold" color="blue.600">
+                              <Text fontSize={{ base: "md", md: "lg" }} fontWeight="bold" color="blue.600">
                                 ₱{order.total_amount.toFixed(2)}
                               </Text>
-                            </HStack>
-                            <Text fontSize="sm" fontWeight="bold" color="blue.600">
+                            </Flex>
+                            <Text fontSize={{ base: "xs", md: "sm" }} fontWeight="bold" color="blue.600">
                               #{order.order_number}
                             </Text>
-                            <Text fontSize="sm" color="gray.600">
+                            <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" truncate>
                               Customer: <Text as="span" fontWeight="medium">{order.user_first_name} {order.user_last_name}</Text>
                             </Text>
-                            <Text fontSize="sm" color="gray.600">
+                            <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" truncate display={{ base: "none", sm: "block" }}>
                               Email: <Text as="span" fontWeight="medium">{order.user_email}</Text>
                             </Text>
                           </VStack>
                         </Flex>
 
                         {/* Middle Section - Order Details */}
-                        <VStack align="start" gap={3} minW={{ base: "full", lg: "300px" }}>
-                          <Text fontSize="sm" color="gray.500" fontWeight="medium">
+                        <VStack align="start" gap={{ base: 2, md: 3 }} minW={{ base: "full", md: "280px", lg: "300px" }}>
+                          <Text fontSize={{ base: "xs", md: "sm" }} color="gray.500" fontWeight="medium">
                             Order Details
                           </Text>
-                          <VStack align="stretch" gap={2} w="full">
-                            <Flex justify="space-between" align="center">
-                              <Text fontSize="sm" color="gray.600">Payment Terms:</Text>
-                              <Text fontSize="sm" fontWeight="medium">
+                          <VStack align="stretch" gap={{ base: 1, md: 2 }} w="full">
+                            <Flex justify="space-between" align="center" wrap="wrap">
+                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">Payment Terms:</Text>
+                              <Text fontSize={{ base: "xs", md: "sm" }} fontWeight="medium">
                                 {formatStatus(order.payment_terms)}
                               </Text>
                             </Flex>
                             {order.shipping_address && (
-                              <Flex justify="space-between" align="start">
-                                <Text fontSize="sm" color="gray.600">Shipping:</Text>
-                                <Text fontSize="sm" fontWeight="medium" maxW="180px" textAlign="right">
+                              <Flex justify="space-between" align="start" wrap="wrap">
+                                <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={{ base: 1, md: 0 }}>Shipping:</Text>
+                                <Text fontSize={{ base: "xs", md: "sm" }} fontWeight="medium" maxW={{ base: "100%", md: "180px" }} textAlign={{ base: "left", md: "right" }}>
                                   {order.shipping_address}
                                 </Text>
                               </Flex>
                             )}
-                            <Flex justify="space-between" align="center">
-                              <Text fontSize="sm" color="gray.600">Order Date:</Text>
-                              <Text fontSize="sm" fontWeight="medium">
+                            <Flex justify="space-between" align="center" wrap="wrap">
+                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">Order Date:</Text>
+                              <Text fontSize={{ base: "xs", md: "sm" }} fontWeight="medium">
                                 {formatDate(order.created_at)}
                               </Text>
                             </Flex>
@@ -455,11 +647,11 @@ const AdminOrders: React.FC = () => {
                         </VStack>
 
                         {/* Right Section - Status Management */}
-                        <VStack align={{ base: "stretch", lg: "end" }} gap={3} minW={{ base: "full", lg: "300px" }}>
-                          <VStack align="stretch" gap={3} w="full">
+                        <VStack align={{ base: "stretch", md: "stretch", lg: "end" }} gap={{ base: 2, md: 3 }} minW={{ base: "full", md: "250px", lg: "300px" }}>
+                          <VStack align="stretch" gap={{ base: 2, md: 3 }} w="full">
                             {/* Order Status */}
                             <Box>
-                              <Text fontSize="sm" color="gray.600" mb={2}>Order Status:</Text>
+                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={{ base: 1, md: 2 }}>Order Status:</Text>
                               <SelectRoot
                                 collection={orderStatusOptions}
                                 value={[order.order_status]}
@@ -468,16 +660,16 @@ const AdminOrders: React.FC = () => {
                                     handleOrderStatusUpdate(order.id, details.value[0] as OrderStatus);
                                   }
                                 }}
-                                size="sm"
+                                size={{ base: "sm", md: "sm" }}
                                 disabled={updatingOrderId === order.id}
                               >
-                                <SelectTrigger>
+                                <SelectTrigger h={{ base: "36px", md: "40px" }}>
                                   <SelectValueText />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {orderStatusOptions.items.map((option) => (
                                     <SelectItem key={option.value} item={option.value}>
-                                      <Badge colorScheme={getStatusColor(option.value)} size="sm">
+                                      <Badge colorScheme={getStatusColor(option.value)} size={{ base: "sm", md: "sm" }}>
                                         {option.label}
                                       </Badge>
                                     </SelectItem>
@@ -488,7 +680,7 @@ const AdminOrders: React.FC = () => {
 
                             {/* Payment Status */}
                             <Box>
-                              <Text fontSize="sm" color="gray.600" mb={2}>Payment Status:</Text>
+                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={{ base: 1, md: 2 }}>Payment Status:</Text>
                               <SelectRoot
                                 collection={paymentStatusOptions}
                                 value={[order.payment_status]}
@@ -497,16 +689,16 @@ const AdminOrders: React.FC = () => {
                                     handlePaymentStatusUpdate(order.id, details.value[0] as PaymentStatus);
                                   }
                                 }}
-                                size="sm"
+                                size={{ base: "sm", md: "sm" }}
                                 disabled={updatingOrderId === order.id}
                               >
-                                <SelectTrigger>
+                                <SelectTrigger h={{ base: "36px", md: "40px" }}>
                                   <SelectValueText />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {paymentStatusOptions.items.map((option) => (
                                     <SelectItem key={option.value} item={option.value}>
-                                      <Badge colorScheme={getPaymentStatusColor(option.value)} size="sm">
+                                      <Badge colorScheme={getPaymentStatusColor(option.value)} size={{ base: "sm", md: "sm" }}>
                                         {option.label}
                                       </Badge>
                                     </SelectItem>
@@ -516,16 +708,17 @@ const AdminOrders: React.FC = () => {
                             </Box>
 
                             {updatingOrderId === order.id && (
-                              <HStack justify="center">
-                                <Spinner size="sm" />
-                                <Text fontSize="sm" color="gray.500">Updating...</Text>
+                              <HStack justify="center" py={2}>
+                                <Spinner size={{ base: "sm", md: "sm" }} />
+                                <Text fontSize={{ base: "xs", md: "sm" }} color="gray.500">Updating...</Text>
                               </HStack>
                             )}
                           </VStack>
                         </VStack>
                       </Flex>
                     </Box>
-                  ))}
+                    );
+                  })}
                 </VStack>
               )}
             </VStack>

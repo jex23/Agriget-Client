@@ -26,12 +26,14 @@ interface AdminHeaderProps {
   onSidebarToggle: () => void;
   isSidebarOpen: boolean;
   notifications?: number;
+  sidebarState?: { isExpanded: boolean; isMobile: boolean };
 }
 
 const AdminHeader: React.FC<AdminHeaderProps> = ({
   user,
   onSidebarToggle,
-  isSidebarOpen
+  isSidebarOpen,
+  sidebarState: _sidebarState
 }) => {
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -96,21 +98,6 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
   const handleNotificationClick = async () => {
     if (!showNotificationMenu) {
       fetchNotifications();
-      // Mark all unread notifications as read when opening the menu
-      if (unreadCount > 0) {
-        try {
-          // Mark all current notifications as read
-          const markAsReadPromises = recentNotifications.map(notification => 
-            notificationService.markAsRead(notification.id)
-          );
-          await Promise.all(markAsReadPromises);
-          setUnreadCount(0);
-          // Refresh notifications to show updated status
-          fetchNotifications();
-        } catch (error) {
-          console.error('Failed to mark notifications as read:', error);
-        }
-      }
     }
     setShowNotificationMenu(!showNotificationMenu);
   };
@@ -118,9 +105,75 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
   const handleMarkAsRead = async (notificationId: number) => {
     try {
       await notificationService.markAsRead(notificationId);
+      // Update the unread count immediately for better UX
+      setUnreadCount(prev => Math.max(0, prev - 1));
+      // Refresh notifications to show updated status
       fetchNotifications();
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      // Mark all current unread notifications as read
+      const unreadNotifications = recentNotifications.filter(n => n.status === 'unread');
+      if (unreadNotifications.length > 0) {
+        const markAsReadPromises = unreadNotifications.map(notification => 
+          notificationService.markAsRead(notification.id)
+        );
+        await Promise.all(markAsReadPromises);
+        setUnreadCount(0);
+        // Refresh notifications to show updated status
+        fetchNotifications();
+      }
+    } catch (error) {
+      console.error('Failed to mark all notifications as read:', error);
+    }
+  };
+
+  const getNavigationPath = (notification: NotificationResponse): string => {
+    switch (notification.type) {
+      case 'new_order':
+      case 'order_updated':
+        if (notification.related_id) {
+          return `${ROUTES.ADMIN_ORDERS}?order=${notification.related_id}`;
+        }
+        return ROUTES.ADMIN_ORDERS;
+      case 'payment_received':
+        if (notification.related_id) {
+          return `${ROUTES.ADMIN_ORDERS}?order=${notification.related_id}`;
+        }
+        return ROUTES.ADMIN_ORDERS;
+      case 'user_registered':
+        if (notification.related_id) {
+          return `${ROUTES.ADMIN_USERS}?user=${notification.related_id}`;
+        }
+        return ROUTES.ADMIN_USERS;
+      default:
+        return ROUTES.ADMIN_NOTIFICATIONS;
+    }
+  };
+
+  const handleNotificationItemClick = async (notification: NotificationResponse) => {
+    try {
+      // Mark as read if it's unread
+      if (notification.status === 'unread') {
+        await notificationService.markAsRead(notification.id);
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+      
+      // Close the notification menu
+      setShowNotificationMenu(false);
+      
+      // Navigate to the appropriate page
+      const navigationPath = getNavigationPath(notification);
+      navigate(navigationPath);
+      
+      // Refresh notifications to show updated status
+      fetchNotifications();
+    } catch (error) {
+      console.error('Failed to handle notification click:', error);
     }
   };
 
@@ -315,7 +368,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                   overflowY="auto"
                 >
                   <Box p={3} borderBottom="1px solid #e2e8f0">
-                    <Flex justify="space-between" align="center">
+                    <Flex justify="space-between" align="center" mb={2}>
                       <Text fontWeight="bold">Recent Notifications</Text>
                       <Button
                         size="xs"
@@ -328,6 +381,19 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         View All
                       </Button>
                     </Flex>
+                    {unreadCount > 0 && (
+                      <Flex justify="center">
+                        <Button
+                          size="xs"
+                          colorScheme="blue"
+                          variant="ghost"
+                          onClick={handleMarkAllAsRead}
+                          fontSize="xs"
+                        >
+                          Mark All as Read ({unreadCount})
+                        </Button>
+                      </Flex>
+                    )}
                   </Box>
                   
                   <Box p={2}>
@@ -346,39 +412,73 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                             key={notification.id}
                             p={2}
                             border="1px"
-                            borderColor="gray.200"
+                            borderColor={notification.status === 'unread' ? 'blue.200' : 'gray.200'}
                             borderRadius="md"
-                            _hover={{ bg: 'gray.50' }}
+                            bg={notification.status === 'unread' ? 'blue.50' : 'white'}
+                            _hover={{ 
+                              bg: notification.status === 'unread' ? 'blue.100' : 'gray.50',
+                              cursor: 'pointer',
+                              transform: 'translateY(-1px)',
+                              boxShadow: 'sm'
+                            }}
+                            position="relative"
+                            transition="all 0.2s ease"
+                            onClick={() => handleNotificationItemClick(notification)}
                           >
                             <Flex justify="space-between" align="start" gap={2}>
                               <VStack align="start" flex={1} gap={1}>
                                 <HStack gap={1}>
+                                  {notification.status === 'unread' && (
+                                    <Box
+                                      w="6px"
+                                      h="6px"
+                                      bg="blue.500"
+                                      borderRadius="full"
+                                      flexShrink={0}
+                                    />
+                                  )}
                                   <Badge colorScheme={getPriorityColor(notification.priority)} size="sm">
                                     {notification.priority}
                                   </Badge>
                                   <Badge variant="outline" size="sm">
                                     {notification.type.replace('_', ' ')}
                                   </Badge>
+                                  {notification.status === 'read' && (
+                                    <Badge colorScheme="green" size="sm" variant="subtle">
+                                      Read
+                                    </Badge>
+                                  )}
                                 </HStack>
-                                <Text fontSize="xs" fontWeight="medium" truncate>
+                                <Text fontSize="xs" fontWeight={notification.status === 'unread' ? 'semibold' : 'medium'} truncate>
                                   {notification.title}
                                 </Text>
                                 <Text fontSize="xs" color="gray.600" truncate>
                                   {notification.message}
                                 </Text>
-                                <Text fontSize="xs" color="gray.500">
-                                  {formatDate(notification.created_at)}
-                                </Text>
+                                <Flex justify="space-between" align="center" w="full">
+                                  <Text fontSize="xs" color="gray.500">
+                                    {formatDate(notification.created_at)}
+                                  </Text>
+                                  <Text fontSize="xs" color="blue.500" fontWeight="medium">
+                                    Click to view →
+                                  </Text>
+                                </Flex>
                               </VStack>
-                              <IconButton
-                                size="xs"
-                                aria-label="Mark as read"
-                                onClick={() => handleMarkAsRead(notification.id)}
-                                variant="ghost"
-                                colorScheme="green"
-                              >
-                                ✓
-                              </IconButton>
+                              {notification.status === 'unread' && (
+                                <IconButton
+                                  size="xs"
+                                  aria-label="Mark as read"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMarkAsRead(notification.id);
+                                  }}
+                                  variant="ghost"
+                                  colorScheme="green"
+                                  _hover={{ bg: 'green.100' }}
+                                >
+                                  ✓
+                                </IconButton>
+                              )}
                             </Flex>
                           </Box>
                         ))}

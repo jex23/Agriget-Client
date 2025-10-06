@@ -37,7 +37,14 @@ const Admin: React.FC = () => {
     totalProducts: 0,
     productsInStock: 0,
     recentOrders: [] as Order[],
-    recentProducts: [] as Product[]
+    recentProducts: [] as Product[],
+    urgentOrders: [] as Order[],
+    pendingOrders: [] as Order[],
+    priorityStats: {
+      urgentCount: 0,
+      highPriorityCount: 0,
+      pendingCount: 0
+    }
   });
   const [dataLoading, setDataLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
@@ -185,6 +192,20 @@ const Admin: React.FC = () => {
         .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
         .slice(0, 6);
       
+      // Calculate priority orders
+      const urgentOrders = orders.filter(isUrgentOrder);
+      const highPriorityOrders = orders.filter(isHighPriorityOrder);
+      const pendingOrders = orders.filter(order => order.order_status === 'pending');
+      
+      // Sort urgent and high priority orders by creation date (newest first)
+      const sortedUrgentOrders = urgentOrders
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 5);
+      
+      const sortedPendingOrders = pendingOrders
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 5);
+      
       setDashboardData({
         totalUsers: users.length,
         totalOrders: orders.length,
@@ -192,7 +213,14 @@ const Admin: React.FC = () => {
         totalProducts: products.length,
         productsInStock,
         recentOrders,
-        recentProducts
+        recentProducts,
+        urgentOrders: sortedUrgentOrders,
+        pendingOrders: sortedPendingOrders,
+        priorityStats: {
+          urgentCount: urgentOrders.length,
+          highPriorityCount: highPriorityOrders.length,
+          pendingCount: pendingOrders.length
+        }
       });
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -234,6 +262,47 @@ const Admin: React.FC = () => {
     return status.split('_').map(word => 
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
+  };
+
+  const isHighPriorityOrder = (order: Order): boolean => {
+    // Orders that need immediate processing
+    if (order.order_status === 'pending') return true;
+    if (order.order_status === 'processing' && order.payment_status === 'pending') return true;
+    
+    // Older orders that need attention
+    const orderAge = Date.now() - new Date(order.created_at).getTime();
+    const daysSinceCreated = orderAge / (1000 * 60 * 60 * 24);
+    if (daysSinceCreated > 3 && ['pending', 'processing'].includes(order.order_status)) return true;
+    
+    return false;
+  };
+
+  const isUrgentOrder = (order: Order): boolean => {
+    // Very urgent orders
+    if (order.order_status === 'pending' && order.payment_status === 'pending') {
+      const orderAge = Date.now() - new Date(order.created_at).getTime();
+      const daysSinceCreated = orderAge / (1000 * 60 * 60 * 24);
+      return daysSinceCreated > 1; // Pending orders older than 1 day
+    }
+    return false;
+  };
+
+  const getPriorityIndicator = (order: Order) => {
+    if (isUrgentOrder(order)) {
+      return {
+        icon: '🚨',
+        text: 'URGENT',
+        color: 'red'
+      };
+    }
+    if (isHighPriorityOrder(order)) {
+      return {
+        icon: '⚠️',
+        text: 'High Priority',
+        color: 'orange'
+      };
+    }
+    return null;
   };
 
   if (isLoading) {
@@ -323,6 +392,191 @@ const Admin: React.FC = () => {
               <Text className="admin-stat-help" fontSize="xs" color="gray.500">Products available</Text>
             </Box>
           </SimpleGrid>
+
+          {/* Priority Orders Section */}
+          <Box className="admin-section">
+            <Flex justify="space-between" align="center" mb={4}>
+              <Heading className="admin-section-title" size="lg">
+                🚨 Priority Orders
+              </Heading>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate(`${ROUTES.ADMIN_ORDERS}?filter=needs_processing`)}
+              >
+                View All Priority Orders
+              </Button>
+            </Flex>
+            
+            {/* Priority Statistics */}
+            <SimpleGrid columns={{ base: 1, md: 3 }} gap={4} mb={6}>
+              <Box bg="red.50" p={4} borderRadius="lg" border="2px solid" borderColor="red.200">
+                <HStack justify="space-between" align="center">
+                  <VStack align="start" gap={1}>
+                    <Text fontSize="sm" color="red.600" fontWeight="medium">🚨 Urgent Orders</Text>
+                    <Text fontSize="2xl" fontWeight="bold" color="red.700">
+                      {dataLoading ? '...' : dashboardData.priorityStats.urgentCount}
+                    </Text>
+                    <Text fontSize="xs" color="red.500">Needs immediate attention</Text>
+                  </VStack>
+                  <Button 
+                    size="sm" 
+                    colorScheme="red" 
+                    variant="solid"
+                    onClick={() => navigate(ROUTES.ADMIN_ORDERS)}
+                    disabled={dashboardData.priorityStats.urgentCount === 0}
+                  >
+                    Process Now
+                  </Button>
+                </HStack>
+              </Box>
+              
+              <Box bg="orange.50" p={4} borderRadius="lg" border="2px solid" borderColor="orange.200">
+                <HStack justify="space-between" align="center">
+                  <VStack align="start" gap={1}>
+                    <Text fontSize="sm" color="orange.600" fontWeight="medium">⚠️ High Priority</Text>
+                    <Text fontSize="2xl" fontWeight="bold" color="orange.700">
+                      {dataLoading ? '...' : dashboardData.priorityStats.highPriorityCount}
+                    </Text>
+                    <Text fontSize="xs" color="orange.500">Requires attention</Text>
+                  </VStack>
+                  <Button 
+                    size="sm" 
+                    colorScheme="orange" 
+                    variant="solid"
+                    onClick={() => navigate(ROUTES.ADMIN_ORDERS)}
+                    disabled={dashboardData.priorityStats.highPriorityCount === 0}
+                  >
+                    Review
+                  </Button>
+                </HStack>
+              </Box>
+              
+              <Box bg="blue.50" p={4} borderRadius="lg" border="2px solid" borderColor="blue.200">
+                <HStack justify="space-between" align="center">
+                  <VStack align="start" gap={1}>
+                    <Text fontSize="sm" color="blue.600" fontWeight="medium">📋 Pending Orders</Text>
+                    <Text fontSize="2xl" fontWeight="bold" color="blue.700">
+                      {dataLoading ? '...' : dashboardData.priorityStats.pendingCount}
+                    </Text>
+                    <Text fontSize="xs" color="blue.500">Awaiting processing</Text>
+                  </VStack>
+                  <Button 
+                    size="sm" 
+                    colorScheme="blue" 
+                    variant="solid"
+                    onClick={() => navigate(ROUTES.ADMIN_ORDERS)}
+                    disabled={dashboardData.priorityStats.pendingCount === 0}
+                  >
+                    Process
+                  </Button>
+                </HStack>
+              </Box>
+            </SimpleGrid>
+
+            {/* Urgent Orders List */}
+            {dashboardData.urgentOrders.length > 0 && (
+              <Box>
+                <Heading size="md" mb={3} color="red.600">🚨 Urgent Orders Requiring Immediate Action</Heading>
+                <VStack gap={3} align="stretch">
+                  {dashboardData.urgentOrders.map(order => {
+                    const priorityIndicator = getPriorityIndicator(order);
+                    return (
+                      <Box 
+                        key={order.id}
+                        bg="red.50" 
+                        p={4} 
+                        borderRadius="lg" 
+                        border="2px solid" 
+                        borderColor="red.200"
+                        position="relative"
+                      >
+                        {priorityIndicator && (
+                          <Badge 
+                            position="absolute"
+                            top={2}
+                            right={2}
+                            colorScheme={priorityIndicator.color}
+                            fontSize="xs"
+                            fontWeight="bold"
+                          >
+                            {priorityIndicator.icon} {priorityIndicator.text}
+                          </Badge>
+                        )}
+                        <Flex justify="space-between" align="center" wrap="wrap" gap={4}>
+                          <VStack align="start" gap={1} flex={1}>
+                            <HStack gap={4} wrap="wrap">
+                              <Text fontWeight="bold" color="red.800">#{order.order_number}</Text>
+                              <Text fontSize="sm" color="gray.600">
+                                {order.user_first_name} {order.user_last_name}
+                              </Text>
+                              <Text fontWeight="bold" color="red.600">₱{order.total_amount.toFixed(2)}</Text>
+                            </HStack>
+                            <HStack gap={4} wrap="wrap">
+                              <Badge colorScheme={getStatusColor(order.order_status)}>
+                                {formatStatus(order.order_status)}
+                              </Badge>
+                              <Text fontSize="xs" color="gray.500">
+                                Created: {formatDate(order.created_at)}
+                              </Text>
+                            </HStack>
+                          </VStack>
+                          <HStack gap={2}>
+                            <Button 
+                              size="sm" 
+                              colorScheme="red"
+                              onClick={() => navigate(ROUTES.ADMIN_ORDERS)}
+                            >
+                              Process Now
+                            </Button>
+                          </HStack>
+                        </Flex>
+                      </Box>
+                    );
+                  })}
+                </VStack>
+              </Box>
+            )}
+
+            {/* Pending Orders Preview */}
+            {dashboardData.pendingOrders.length > 0 && (
+              <Box mt={6}>
+                <Heading size="md" mb={3} color="blue.600">📋 Recent Pending Orders</Heading>
+                <SimpleGrid columns={{ base: 1, lg: 2 }} gap={3}>
+                  {dashboardData.pendingOrders.slice(0, 4).map(order => (
+                    <Box 
+                      key={order.id}
+                      bg="blue.50" 
+                      p={3} 
+                      borderRadius="md" 
+                      border="1px solid" 
+                      borderColor="blue.200"
+                      _hover={{ bg: "blue.100", cursor: "pointer" }}
+                      onClick={() => navigate(ROUTES.ADMIN_ORDERS)}
+                    >
+                      <Flex justify="space-between" align="center">
+                        <VStack align="start" gap={1} flex={1}>
+                          <HStack gap={2}>
+                            <Text fontWeight="bold" fontSize="sm" color="blue.800">#{order.order_number}</Text>
+                            <Text fontSize="xs" color="gray.600">
+                              {order.user_first_name} {order.user_last_name}
+                            </Text>
+                          </HStack>
+                          <HStack gap={2}>
+                            <Text fontWeight="bold" fontSize="sm" color="blue.600">₱{order.total_amount.toFixed(2)}</Text>
+                            <Text fontSize="xs" color="gray.500">
+                              {formatDate(order.created_at)}
+                            </Text>
+                          </HStack>
+                        </VStack>
+                        <Text fontSize="xs" color="blue.500">Click to process →</Text>
+                      </Flex>
+                    </Box>
+                  ))}
+                </SimpleGrid>
+              </Box>
+            )}
+          </Box>
 
           {/* Recent Orders Table */}
           <Box className="admin-section">
@@ -483,10 +737,26 @@ const Admin: React.FC = () => {
               <Button 
                 className="admin-quick-action" 
                 size="lg" 
+                variant={dashboardData.priorityStats.urgentCount > 0 ? "solid" : "outline"}
+                colorScheme={dashboardData.priorityStats.urgentCount > 0 ? "red" : "gray"}
+                onClick={() => navigate(ROUTES.ADMIN_ORDERS)}
+              >
+                <HStack gap={2}>
+                  <Text>🚨 Priority Orders</Text>
+                  {dashboardData.priorityStats.urgentCount > 0 && (
+                    <Badge bg="white" color="red.600" borderRadius="full" fontSize="xs">
+                      {dashboardData.priorityStats.urgentCount}
+                    </Badge>
+                  )}
+                </HStack>
+              </Button>
+              <Button 
+                className="admin-quick-action" 
+                size="lg" 
                 variant="outline"
                 onClick={() => navigate(ROUTES.ADMIN_ORDERS)}
               >
-                📊 View Orders
+                📊 All Orders
               </Button>
               <Button 
                 className="admin-quick-action" 
@@ -502,17 +772,45 @@ const Admin: React.FC = () => {
                 variant="outline"
                 onClick={() => navigate(ROUTES.ADMIN_PRODUCTS)}
               >
-                📦 Inventory Check
-              </Button>
-              <Button 
-                className="admin-quick-action" 
-                size="lg" 
-                variant="outline"
-                onClick={fetchDashboardData}
-              >
-                🔄 Refresh Data
+                📦 Inventory
               </Button>
             </SimpleGrid>
+            
+            {/* Additional Priority Actions */}
+            {(dashboardData.priorityStats.urgentCount > 0 || dashboardData.priorityStats.pendingCount > 0) && (
+              <Box mt={4}>
+                <Text fontSize="sm" color="gray.600" mb={3}>Priority Actions:</Text>
+                <HStack gap={3} wrap="wrap">
+                  {dashboardData.priorityStats.urgentCount > 0 && (
+                    <Button 
+                      size="sm"
+                      colorScheme="red" 
+                      variant="solid"
+                      onClick={() => navigate(`${ROUTES.ADMIN_ORDERS}?filter=urgent`)}
+                    >
+                      🚨 Process {dashboardData.priorityStats.urgentCount} Urgent Order{dashboardData.priorityStats.urgentCount !== 1 ? 's' : ''}
+                    </Button>
+                  )}
+                  {dashboardData.priorityStats.pendingCount > 0 && (
+                    <Button 
+                      size="sm"
+                      colorScheme="blue" 
+                      variant="outline"
+                      onClick={() => navigate(`${ROUTES.ADMIN_ORDERS}?filter=pending`)}
+                    >
+                      📋 Review {dashboardData.priorityStats.pendingCount} Pending Order{dashboardData.priorityStats.pendingCount !== 1 ? 's' : ''}
+                    </Button>
+                  )}
+                  <Button 
+                    size="sm"
+                    variant="ghost"
+                    onClick={fetchDashboardData}
+                  >
+                    🔄 Refresh Data
+                  </Button>
+                </HStack>
+              </Box>
+            )}
           </Box>
             </VStack>
           </Container>

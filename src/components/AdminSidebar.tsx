@@ -21,6 +21,7 @@ import {
 } from 'react-icons/fi';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ROUTES } from '../constants/routes.js';
+import { orderService } from '../services/orderService';
 import './AdminSidebar.css';
 
 interface AdminSidebarProps {
@@ -28,19 +29,43 @@ interface AdminSidebarProps {
   onToggle: () => void;
   onExpansionChange?: (expanded: boolean) => void;
   onSidebarStateChange?: (state: { isExpanded: boolean; isMobile: boolean }) => void;
+  refreshTrigger?: number; // Optional prop to trigger refresh of pending orders
 }
 
 const AdminSidebar: React.FC<AdminSidebarProps> = ({
   isOpen,
   onToggle,
   onExpansionChange,
-  onSidebarStateChange
+  onSidebarStateChange,
+  refreshTrigger
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isHovered, setIsHovered] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+
+  // Fetch pending orders count
+  const fetchPendingOrdersCount = async () => {
+    try {
+      const result = await orderService.getPendingOrdersCount();
+      setPendingOrdersCount(result.count);
+    } catch (error) {
+      console.error('Failed to fetch pending orders count:', error);
+      setPendingOrdersCount(0);
+    }
+  };
+
+  // Initial fetch and refresh when trigger changes
+  useEffect(() => {
+    fetchPendingOrdersCount();
+    
+    // Set up periodic refresh every 30 seconds
+    const interval = setInterval(fetchPendingOrdersCount, 30000);
+    
+    return () => clearInterval(interval);
+  }, [refreshTrigger]);
 
   // Handle window resize
   useEffect(() => {
@@ -103,7 +128,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
       icon: FiShoppingBag,
       label: 'Orders',
       path: ROUTES.ADMIN_ORDERS,
-      badge: null,
+      badge: pendingOrdersCount > 0 ? pendingOrdersCount : null,
       color: 'orange.500'
     },
     {
@@ -309,17 +334,61 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     display="flex"
                     alignItems="center"
                     justifyContent="center"
+                    position="relative"
                   >
                     <Icon />
+                    {/* Badge for collapsed sidebar (icon only) */}
+                    {item.badge && !isExpanded && (
+                      <Box
+                        position="absolute"
+                        top="-8px"
+                        right="-8px"
+                        bg="red.500"
+                        color="white"
+                        borderRadius="full"
+                        fontSize="xs"
+                        fontWeight="bold"
+                        minW="20px"
+                        h="20px"
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="center"
+                        border="2px solid white"
+                        boxShadow="0 2px 4px rgba(0,0,0,0.1)"
+                      >
+                        {item.badge > 99 ? '99+' : item.badge}
+                      </Box>
+                    )}
                   </Box>
                   {isExpanded && (
-                    <Text 
-                      fontSize="md" 
-                      fontWeight={isActive ? "600" : "500"}
-                      color={isActive ? 'blue.600' : 'gray.700'}
-                    >
-                      {item.label}
-                    </Text>
+                    <HStack flex={1} justify="space-between" align="center">
+                      <Text 
+                        fontSize="md" 
+                        fontWeight={isActive ? "600" : "500"}
+                        color={isActive ? 'blue.600' : 'gray.700'}
+                      >
+                        {item.label}
+                      </Text>
+                      {/* Badge for expanded sidebar (next to text) */}
+                      {item.badge && (
+                        <Box
+                          bg="red.500"
+                          color="white"
+                          borderRadius="full"
+                          fontSize="xs"
+                          fontWeight="bold"
+                          minW="22px"
+                          h="22px"
+                          display="flex"
+                          alignItems="center"
+                          justifyContent="center"
+                          border="2px solid white"
+                          boxShadow="0 2px 4px rgba(0,0,0,0.1)"
+                        >
+                          {item.badge > 99 ? '99+' : item.badge}
+                        </Box>
+                      )}
+                    </HStack>
                   )}
                 </HStack>
                 

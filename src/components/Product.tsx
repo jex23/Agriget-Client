@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   Box,
   Button,
-  Heading,
   Text,
   HStack,
   Badge,
@@ -150,27 +149,29 @@ const Product: React.FC<ProductProps> = ({
     <Box 
       className="product-card"
       bg="white"
-      borderRadius="16px"
+      borderRadius={{ base: "12px", md: "16px" }}
       boxShadow="0 2px 8px rgba(0,0,0,0.08)"
       overflow="hidden"
       transition="all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)"
       _hover={{ 
-        transform: 'translateY(-8px)', 
+        transform: { base: 'translateY(-4px)', md: 'translateY(-8px)' }, 
         boxShadow: '0 12px 32px rgba(0,0,0,0.12)',
         cursor: 'pointer'
       }}
-      width="300px"
-      minHeight="420px"
+      width={{ base: "100%", sm: "280px", md: "300px" }}
+      maxWidth="100%"
+      minHeight={{ base: "380px", md: "420px" }}
       display="flex"
       flexDirection="column"
       position="relative"
       border="1px solid"
       borderColor="gray.100"
+      mx="auto"
     >
       {/* Product Image Container */}
       <Box 
         position="relative"
-        height="200px"
+        height={{ base: "180px", sm: "200px", md: "200px" }}
         width="100%"
         bg="gray.50"
         overflow="hidden"
@@ -258,7 +259,7 @@ const Product: React.FC<ProductProps> = ({
       </Box>
 
       {/* Product Content */}
-      <Box p={5} flex="1" display="flex" flexDirection="column">
+      <Box p={{ base: 4, md: 5 }} flex="1" display="flex" flexDirection="column">
         {/* Category Badge */}
         {product.category && (
           <Badge
@@ -281,12 +282,12 @@ const Product: React.FC<ProductProps> = ({
         {/* Product Name */}
         <Box 
           className="product-name" 
-          fontSize="lg"
+          fontSize={{ base: "md", md: "lg" }}
           fontWeight="700"
           color="gray.900"
           lineHeight="1.3"
           mb={2}
-          minHeight="2.5rem"
+          minHeight={{ base: "2rem", md: "2.5rem" }}
           overflow="hidden"
           css={{
             display: "-webkit-box",
@@ -298,7 +299,7 @@ const Product: React.FC<ProductProps> = ({
         </Box>
 
         {/* Stock Information */}
-        <Text fontSize="sm" color="gray.600" mb={3}>
+        <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={3}>
           {product.stock_quantity} {product.unit} available
         </Text>
 
@@ -306,14 +307,14 @@ const Product: React.FC<ProductProps> = ({
         <Box className="product-pricing" mb={4}>
           <Text 
             className="product-price" 
-            fontSize="2xl" 
+            fontSize={{ base: "xl", md: "2xl" }} 
             fontWeight="800" 
             color="blue.600"
             lineHeight="1"
           >
             ₱{product.price.toFixed(2)}
           </Text>
-          <Text className="product-unit" fontSize="sm" color="gray.500">
+          <Text className="product-unit" fontSize={{ base: "xs", md: "sm" }} color="gray.500">
             per {product.unit}
           </Text>
         </Box>
@@ -380,7 +381,7 @@ const Product: React.FC<ProductProps> = ({
           {/* Add to Cart Button */}
           <Button
             className="product-add-to-cart-button"
-            size="md"
+            size={{ base: "sm", md: "md" }}
             width="100%"
             variant="outline"
             colorScheme="blue"
@@ -389,9 +390,10 @@ const Product: React.FC<ProductProps> = ({
             loading={isLoading}
             fontWeight="600"
             mb={3}
-            h="44px"
-            borderRadius="12px"
+            h={{ base: "40px", md: "44px" }}
+            borderRadius={{ base: "8px", md: "12px" }}
             borderWidth="2px"
+            fontSize={{ base: "sm", md: "md" }}
             _hover={{
               bg: "blue.50",
               transform: "translateY(-1px)"
@@ -404,15 +406,16 @@ const Product: React.FC<ProductProps> = ({
           {/* Buy Now Button */}
           <Button
             className="product-buy-now-button"
-            size="md"
+            size={{ base: "sm", md: "md" }}
             width="100%"
             colorScheme="blue"
             onClick={handleBuyNow}
             disabled={isLoading || product.stock_quantity === 0 || !product.is_active}
             loading={isLoading}
             fontWeight="600"
-            h="44px"
-            borderRadius="12px"
+            h={{ base: "40px", md: "44px" }}
+            borderRadius={{ base: "8px", md: "12px" }}
+            fontSize={{ base: "sm", md: "md" }}
             bg="blue.600"
             _hover={{
               bg: "blue.700",
