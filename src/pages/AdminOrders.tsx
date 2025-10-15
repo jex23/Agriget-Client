@@ -446,27 +446,52 @@ const AdminOrders: React.FC = () => {
               <VStack align="stretch" gap={4}>
                 <Box>
                   <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={{ base: 2, md: 3 }}>Filter by Status:</Text>
-                  <Box className="admin-order-tabs-container">
-                    <HStack gap={{ base: 1, sm: 2 }} wrap="wrap" justify={{ base: "center", md: "flex-start" }}>
-                      {statusOptions.items.map((tab) => (
-                        <Button
-                          key={tab.value}
-                          size={{ base: "xs", sm: "sm" }}
-                          variant={selectedStatus === tab.value ? "solid" : "outline"}
-                          colorScheme={selectedStatus === tab.value ? "blue" : "gray"}
-                          className={`admin-order-tab ${selectedStatus === tab.value ? 'admin-order-tab-active' : 'admin-order-tab-inactive'}`}
-                          onClick={() => setSelectedStatus(tab.value)}
-                          fontSize={{ base: "xs", sm: "sm" }}
-                          px={{ base: 2, sm: 4 }}
-                          py={{ base: 1, sm: 2 }}
-                          whiteSpace="nowrap"
-                          flexShrink={0}
+                  <SelectRoot
+                    collection={statusOptions}
+                    value={[selectedStatus]}
+                    onValueChange={(details) => {
+                      if (details.value && details.value.length > 0) {
+                        setSelectedStatus(details.value[0]);
+                      }
+                    }}
+                    size={{ base: "sm", md: "md" }}
+                    width={{ base: "full", md: "320px" }}
+                  >
+                    <SelectTrigger style={{
+                      backgroundColor: '#ffffff',
+                      color: '#2d3748',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '0.375rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingRight: '12px'
+                    }}>
+                      <SelectValueText placeholder="Select status filter" />
+                      <Text ml={2} fontSize="sm">▼</Text>
+                    </SelectTrigger>
+                    <SelectContent style={{
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '0.375rem'
+                    }}>
+                      {statusOptions.items.map((option) => (
+                        <SelectItem
+                          key={option.value}
+                          item={option.value}
+                          style={{
+                            backgroundColor: '#ffffff',
+                            color: '#2d3748'
+                          }}
+                          _hover={{
+                            backgroundColor: '#f7fafc'
+                          }}
                         >
-                          {tab.label}
-                        </Button>
+                          {option.label}
+                        </SelectItem>
                       ))}
-                    </HStack>
-                  </Box>
+                    </SelectContent>
+                  </SelectRoot>
                 </Box>
                 <Flex direction={{ base: "column", lg: "row" }} justify="space-between" align={{ base: "stretch", lg: "center" }} gap={{ base: 3, lg: 4 }}>
                   <VStack align={{ base: "center", lg: "flex-start" }} gap={3}>
@@ -597,14 +622,28 @@ const AdminOrders: React.FC = () => {
                             <Text fontWeight="bold" fontSize={{ base: "md", md: "lg" }} color="gray.800" truncate>
                               {order.product_name || 'Product'}
                             </Text>
-                            <Flex direction={{ base: "column", sm: "row" }} gap={{ base: 1, sm: 4 }} wrap="wrap">
-                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">
-                                Qty: <Text as="span" fontWeight="medium">{order.quantity}</Text>
-                              </Text>
-                              <Text fontSize={{ base: "md", md: "lg" }} fontWeight="bold" color="blue.600">
-                                ₱{order.total_amount.toFixed(2)}
-                              </Text>
-                            </Flex>
+                            <VStack align="start" gap={1}>
+                              <Flex gap={{ base: 1, sm: 4 }} wrap="wrap" align="center">
+                                <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">
+                                  Qty: <Text as="span" fontWeight="medium">{order.quantity}</Text>
+                                </Text>
+                                <Text fontSize={{ base: "md", md: "lg" }} fontWeight="bold" color="gray.700">
+                                  ₱{order.total_amount.toFixed(2)}
+                                </Text>
+                              </Flex>
+                              {order.shipping_fee !== undefined && order.shipping_fee > 0 && !order.free_shipping && (
+                                <HStack gap={2}>
+                                  <Text fontSize={{ base: "2xs", md: "xs" }} color="orange.600" fontWeight="semibold">
+                                    + ₱{order.shipping_fee.toFixed(2)} shipping
+                                  </Text>
+                                </HStack>
+                              )}
+                              {order.free_shipping && (
+                                <Badge colorScheme="green" size="sm" fontSize="2xs">
+                                  FREE SHIPPING
+                                </Badge>
+                              )}
+                            </VStack>
                             <Text fontSize={{ base: "xs", md: "sm" }} fontWeight="bold" color="blue.600">
                               #{order.order_number}
                             </Text>
@@ -638,11 +677,31 @@ const AdminOrders: React.FC = () => {
                               </Flex>
                             )}
                             <Flex justify="space-between" align="center" wrap="wrap">
+                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">Shipping Fee:</Text>
+                              {order.free_shipping ? (
+                                <Badge colorScheme="green" size="sm" fontSize="2xs">
+                                  FREE
+                                </Badge>
+                              ) : (
+                                <Text fontSize={{ base: "xs", md: "sm" }} fontWeight="bold" color="orange.600">
+                                  ₱{(order.shipping_fee || 0).toFixed(2)}
+                                </Text>
+                              )}
+                            </Flex>
+                            <Flex justify="space-between" align="center" wrap="wrap">
                               <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">Order Date:</Text>
                               <Text fontSize={{ base: "xs", md: "sm" }} fontWeight="medium">
                                 {formatDate(order.created_at)}
                               </Text>
                             </Flex>
+                            <Box borderTop="1px solid" borderColor="gray.200" pt={2} mt={1}>
+                              <Flex justify="space-between" align="center">
+                                <Text fontSize={{ base: "xs", md: "sm" }} color="gray.700" fontWeight="bold">Grand Total:</Text>
+                                <Text fontSize={{ base: "md", md: "lg" }} fontWeight="bold" color="blue.700">
+                                  ₱{((order.total_amount || 0) + (order.free_shipping ? 0 : (order.shipping_fee || 0))).toFixed(2)}
+                                </Text>
+                              </Flex>
+                            </Box>
                           </VStack>
                         </VStack>
 

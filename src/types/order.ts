@@ -14,14 +14,16 @@ export interface Order {
   payment_status: PaymentStatus;
   order_status: OrderStatus;
   shipping_address?: string;
+  shipping_fee?: number; // decimal(10,2) from database
+  free_shipping?: boolean;
   created_at: string;
   updated_at: string;
-  
+
   // Product details (from JOIN)
   product_name?: string;
   product_price?: number;
   product_image?: string;
-  
+
   // User details (from JOIN, available for admin)
   user_first_name?: string;
   user_last_name?: string;
@@ -34,6 +36,8 @@ export interface CreateOrderRequest {
   quantity?: number; // defaults to 1.0 in database
   payment_terms: PaymentTerms;
   shipping_address?: string;
+  shipping_fee?: number; // defaults to 0.0 in database
+  free_shipping?: boolean; // defaults to false in database
 }
 
 export interface UpdateOrderRequest {
@@ -42,6 +46,8 @@ export interface UpdateOrderRequest {
   payment_status?: PaymentStatus;
   order_status?: OrderStatus;
   shipping_address?: string;
+  shipping_fee?: number;
+  free_shipping?: boolean;
 }
 
 export interface OrderResponse extends Order {}

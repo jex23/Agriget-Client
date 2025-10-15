@@ -12,10 +12,20 @@ import {
   Image,
   Spinner,
   Center,
-  createToaster
+  createToaster,
+  Icon
 } from '@chakra-ui/react';
+import {
+  SelectContent,
+  SelectItem,
+  SelectRoot,
+  SelectTrigger,
+  SelectValueText,
+} from '@chakra-ui/react/select';
+import { createListCollection } from '@chakra-ui/react';
 import { Alert } from '@chakra-ui/react/alert';
 import { useNavigate } from 'react-router-dom';
+import { FiChevronDown } from 'react-icons/fi';
 import type { User } from '../types/auth.js';
 import type { Order } from '../types/order';
 import type { CartItem } from '../types/cart';
@@ -216,8 +226,27 @@ const Orders: React.FC = () => {
     }
   };
 
+  const isOrderOlderThanOneHour = (createdAt: string) => {
+    const orderTime = new Date(createdAt).getTime();
+    const currentTime = new Date().getTime();
+    const oneHourInMs = 60 * 60 * 1000; // 1 hour in milliseconds
+    return (currentTime - orderTime) > oneHourInMs;
+  };
+
   const canCancelOrder = (order: Order) => {
-    return order.order_status === 'pending' || order.order_status === 'processing';
+    const hasValidStatus = order.order_status === 'pending' || order.order_status === 'processing';
+    const isWithinTimeLimit = !isOrderOlderThanOneHour(order.created_at);
+    return hasValidStatus && isWithinTimeLimit;
+  };
+
+  const getCancelDisabledReason = (order: Order) => {
+    if (order.order_status !== 'pending' && order.order_status !== 'processing') {
+      return 'Order status does not allow cancellation';
+    }
+    if (isOrderOlderThanOneHour(order.created_at)) {
+      return 'Order cannot be cancelled after 1 hour';
+    }
+    return '';
   };
 
   const getStatusColor = (status: string) => {
@@ -322,34 +351,42 @@ const Orders: React.FC = () => {
           </Box>
 
           <VStack align="stretch" gap={4}>
-            <Box>
-              <Text fontSize="sm" color="gray.600" mb={3}>Filter by Status:</Text>
-              <Box className="order-tabs-container">
-                <HStack gap={2} wrap="wrap">
-                  {statusTabs.map((tab) => (
-                    <Button
-                      key={tab.value}
-                      size="sm"
-                      variant={selectedStatus === tab.value ? "solid" : "outline"}
-                      colorScheme={selectedStatus === tab.value ? "blue" : "gray"}
-                      className={`order-tab ${selectedStatus === tab.value ? 'order-tab-active' : 'order-tab-inactive'}`}
-                      onClick={() => handleStatusChange(tab.value)}
-                    >
-                      {tab.label}
-                    </Button>
-                  ))}
-                </HStack>
+            <Flex justify="space-between" align="center" wrap="wrap" gap={4}>
+              <Box minW={{ base: "full", md: "250px" }}>
+                <Text fontSize="sm" color="gray.600" mb={2}>Filter by Status:</Text>
+                <SelectRoot
+                  collection={createListCollection({ items: statusTabs })}
+                  value={[selectedStatus]}
+                  onValueChange={(details) => handleStatusChange(details.value[0])}
+                  size="sm"
+                >
+                  <SelectTrigger bg="white" borderColor="gray.300" color="gray.800">
+                    <Flex justify="space-between" align="center" width="100%">
+                      <SelectValueText placeholder="Select status" />
+                      <Icon fontSize="lg" color="gray.600">
+                        <FiChevronDown />
+                      </Icon>
+                    </Flex>
+                  </SelectTrigger>
+                  <SelectContent bg="white" color="gray.800" borderColor="gray.300">
+                    {statusTabs.map((status) => (
+                      <SelectItem key={status.value} item={status.value} bg="white" color="gray.800" _hover={{ bg: "blue.50" }}>
+                        {status.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </SelectRoot>
               </Box>
-            </Box>
-            <Flex justify="space-between" align="center" wrap="wrap" gap={2}>
-              <Text fontSize="sm" color="gray.500">
-                Showing {((currentPage - 1) * ordersPerPage) + 1}-{Math.min(currentPage * ordersPerPage, filteredOrders.length)} of {filteredOrders.length} orders
-              </Text>
-              {totalPages > 1 && (
+              <Flex direction="column" gap={1} align={{ base: "start", md: "end" }}>
                 <Text fontSize="sm" color="gray.500">
-                  Page {currentPage} of {totalPages}
+                  Showing {((currentPage - 1) * ordersPerPage) + 1}-{Math.min(currentPage * ordersPerPage, filteredOrders.length)} of {filteredOrders.length} orders
                 </Text>
-              )}
+                {totalPages > 1 && (
+                  <Text fontSize="sm" color="gray.500">
+                    Page {currentPage} of {totalPages}
+                  </Text>
+                )}
+              </Flex>
             </Flex>
           </VStack>
 
@@ -418,14 +455,30 @@ const Orders: React.FC = () => {
                         <Text fontWeight="bold" fontSize="lg" color="gray.800" lineClamp={2}>
                           {order.product_name || 'Product'}
                         </Text>
-                        <HStack gap={4} wrap="wrap">
-                          <Text fontSize="sm" color="gray.600">
-                            Qty: <Text as="span" fontWeight="medium">{order.quantity}</Text>
-                          </Text>
-                          <Text fontSize="lg" fontWeight="bold" color="blue.600">
-                            ₱{order.total_amount.toFixed(2)}
-                          </Text>
-                        </HStack>
+                        <VStack align="start" gap={1}>
+                          <HStack gap={4} wrap="wrap">
+                            <Text fontSize="sm" color="gray.600">
+                              Qty: <Text as="span" fontWeight="medium">{order.quantity}</Text>
+                            </Text>
+                            <Text fontSize="md" fontWeight="bold" color="gray.700">
+                              ₱{order.total_amount.toFixed(2)}
+                            </Text>
+                          </HStack>
+                          {order.shipping_fee !== undefined && order.shipping_fee > 0 && !order.free_shipping && (
+                            <HStack gap={2}>
+                              <Text fontSize="xs" color="orange.600">
+                                + ₱{order.shipping_fee.toFixed(2)} shipping
+                              </Text>
+                            </HStack>
+                          )}
+                          {order.free_shipping && (
+                            <HStack gap={2}>
+                              <Badge colorScheme="green" size="sm" fontSize="2xs">
+                                FREE SHIPPING
+                              </Badge>
+                            </HStack>
+                          )}
+                        </VStack>
                         <Text fontSize="sm" fontWeight="bold" color="blue.600">
                           #{order.order_number}
                         </Text>
@@ -464,6 +517,26 @@ const Orders: React.FC = () => {
                             </Text>
                           </Flex>
                         )}
+                        <Flex justify="space-between" align="center">
+                          <Text fontSize="sm" color="gray.600">Shipping Fee:</Text>
+                          {order.free_shipping ? (
+                            <Badge colorScheme="green" size="sm">
+                              FREE
+                            </Badge>
+                          ) : (
+                            <Text fontSize="sm" fontWeight="bold" color="orange.600">
+                              ₱{(order.shipping_fee || 0).toFixed(2)}
+                            </Text>
+                          )}
+                        </Flex>
+                        <Box borderTop="1px solid" borderColor="gray.200" pt={2} mt={1}>
+                          <Flex justify="space-between" align="center">
+                            <Text fontSize="sm" color="gray.700" fontWeight="semibold">Grand Total:</Text>
+                            <Text fontSize="md" fontWeight="bold" color="blue.700">
+                              ₱{((order.total_amount || 0) + (order.free_shipping ? 0 : (order.shipping_fee || 0))).toFixed(2)}
+                            </Text>
+                          </Flex>
+                        </Box>
                       </VStack>
                     </VStack>
 
@@ -473,7 +546,7 @@ const Orders: React.FC = () => {
                         {formatDate(order.created_at)}
                       </Text>
                       <Flex direction="column" gap={2} w={{ base: "full", lg: "auto" }}>
-                        {canCancelOrder(order) && (
+                        {canCancelOrder(order) ? (
                           <Button
                             className="orders-cancel-button"
                             size="sm"
@@ -484,6 +557,22 @@ const Orders: React.FC = () => {
                           >
                             Cancel Order
                           </Button>
+                        ) : (
+                          (order.order_status === 'pending' || order.order_status === 'processing') &&
+                          isOrderOlderThanOneHour(order.created_at) && (
+                            <Box
+                              bg="orange.50"
+                              border="1px solid"
+                              borderColor="orange.200"
+                              borderRadius="md"
+                              p={2}
+                              w={{ base: "full", lg: "auto" }}
+                            >
+                              <Text fontSize="xs" color="orange.700" textAlign="center">
+                                ⚠️ Cannot cancel after 1 hour
+                              </Text>
+                            </Box>
+                          )
                         )}
                       </Flex>
                     </VStack>

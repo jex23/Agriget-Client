@@ -40,9 +40,10 @@ interface HeaderProps {
   onSidebarToggle?: () => void;
   isSidebarOpen?: boolean;
   onRemoveFromCart?: (productId: number) => void;
+  onRemoveAllFromCart?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ user, cartItemsData, onSidebarToggle, isSidebarOpen, onRemoveFromCart }) => {
+const Header: React.FC<HeaderProps> = ({ user, cartItemsData, onSidebarToggle, isSidebarOpen, onRemoveFromCart, onRemoveAllFromCart }) => {
   const navigate = useNavigate();
   const [isMobile, setIsMobile] = useState(false);
   const [showMiniCart, setShowMiniCart] = useState(false);
@@ -107,6 +108,12 @@ const Header: React.FC<HeaderProps> = ({ user, cartItemsData, onSidebarToggle, i
     onRemoveFromCart?.(productId);
   };
 
+  // Handle remove all items from mini cart
+  const handleRemoveAll = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    onRemoveAllFromCart?.();
+  };
+
   // Render mini cart component
   const renderMiniCart = () => {
     if (!cartItemsData || cartItemsData.length === 0) {
@@ -161,7 +168,7 @@ const Header: React.FC<HeaderProps> = ({ user, cartItemsData, onSidebarToggle, i
       >
         {/* Header */}
         <Box p={{ base: 3, md: 4 }} borderBottom="1px solid" borderColor="gray.100" bg="white">
-          <Flex justify="space-between" align="center">
+          <Flex justify="space-between" align="center" mb={2}>
             <Text fontSize={{ base: "sm", md: "md" }} fontWeight="700" color="gray.900">
               Shopping Cart
             </Text>
@@ -184,6 +191,25 @@ const Header: React.FC<HeaderProps> = ({ user, cartItemsData, onSidebarToggle, i
               </IconButton>
             </HStack>
           </Flex>
+          {/* Remove All Button */}
+          {getUniqueProductCount() > 0 && onRemoveAllFromCart && (
+            <Button
+              size="xs"
+              variant="ghost"
+              colorScheme="red"
+              onClick={handleRemoveAll}
+              width="100%"
+              fontWeight="500"
+              color="red.500"
+              _hover={{ bg: "red.50", color: "red.600" }}
+              borderRadius="md"
+            >
+              <HStack gap={1}>
+                <FiTrash2 size={12} />
+                <Text fontSize="xs">Remove All Items</Text>
+              </HStack>
+            </Button>
+          )}
         </Box>
 
         {/* Items */}

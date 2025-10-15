@@ -9,6 +9,7 @@ import {
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '../constants/routes.js';
+import type { User } from '../types/auth.js';
 import './Sidebar.css';
 
 interface SidebarProps {
@@ -19,6 +20,7 @@ interface SidebarProps {
   totalPrice: number;
   isOpen?: boolean;
   onToggle?: () => void;
+  user?: User | null;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -214,7 +216,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </Box>
                 <Box className="sidebar-help-box">
                   <Text className="sidebar-help-label" fontSize="xs">🚚 Free Delivery</Text>
-                  <Text className="sidebar-help-value" fontSize="sm" fontWeight="medium">Orders ₱5,000+</Text>
+                  <Text className="sidebar-help-value" fontSize="sm" fontWeight="medium">Orders above minimum order</Text>
                 </Box>
               </VStack>
             </Box>

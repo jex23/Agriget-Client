@@ -1,0 +1,203 @@
+.product-details-container {
+  min-height: 100vh;
+  background-color: #f7fafc;
+}
+
+/* Ensure proper text colors */
+.product-details-container * {
+  color: inherit;
+}
+
+.product-details-container h1,
+.product-details-container h2,
+.product-details-container h3,
+.product-details-container h4,
+.product-details-container h5,
+.product-details-container h6 {
+  color: #2d3748;
+}
+
+.product-details-container p,
+.product-details-container span {
+  color: #4a5568;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .product-details-container {
+    padding-bottom: 2rem;
+  }
+}
+
+/* Image hover effect */
+.product-details-container img {
+  transition: transform 0.3s ease;
+}
+
+.product-details-container img:hover {
+  transform: scale(1.02);
+}
+
+/* Button animations */
+.product-details-container button {
+  transition: all 0.2s ease;
+}
+
+.product-details-container button:active {
+  transform: translateY(0) !important;
+}
+
+/* Card shadows and borders */
+.product-details-container .chakra-box {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+/* Ensure buttons have proper text color */
+.product-details-container button span,
+.product-details-container button p {
+  color: inherit !important;
+}
+
+.product-details-container [data-theme="light"] button {
+  color: inherit;
+}
+
+/* Loading spinner */
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e2e8f0;
+  border-top: 4px solid #3182ce;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Better readability for description text */
+.product-details-container .description-text {
+  line-height: 1.8;
+  color: #4a5568;
+  font-size: 0.95rem;
+}
+
+/* Icon colors */
+.product-details-container svg {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Enhanced animations and effects */
+.price-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.price-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.info-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.info-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+}
+
+.trust-signals {
+  transition: transform 0.3s ease;
+}
+
+.trust-signals:hover {
+  transform: scale(1.02);
+}
+
+.quantity-selector {
+  transition: border-color 0.3s ease;
+}
+
+.quantity-controls {
+  transition: all 0.3s ease;
+}
+
+.total-price-card {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 10px 40px rgba(59, 130, 246, 0.3);
+  }
+  50% {
+    box-shadow: 0 10px 40px rgba(59, 130, 246, 0.5);
+  }
+}
+
+.price-glow {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  33% {
+    transform: translate(10px, -10px) rotate(5deg);
+  }
+  66% {
+    transform: translate(-10px, 5px) rotate(-5deg);
+  }
+}
+
+.add-to-cart-btn:hover,
+.buy-now-btn:hover {
+  animation: btn-pulse 0.5s ease;
+}
+
+@keyframes btn-pulse {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-3px) scale(1.02);
+  }
+  100% {
+    transform: translateY(-3px) scale(1);
+  }
+}
+
+.btn-shine {
+  animation: shine 3s ease-in-out infinite;
+}
+
+@keyframes shine {
+  0% {
+    left: -100%;
+  }
+  20%, 100% {
+    left: 100%;
+  }
+}
+
+/* Gradient backgrounds */
+.product-details-container [class*="gradient-to-r"] {
+  background: linear-gradient(to right, var(--chakra-colors-blue-50), var(--chakra-colors-indigo-50));
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .price-card,
+  .info-card {
+    transition: none;
+  }
+
+  .price-card:hover,
+  .info-card:hover {
+    transform: none;
+  }
+}

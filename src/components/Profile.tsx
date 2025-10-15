@@ -8,7 +8,6 @@ import {
   VStack,
   HStack,
   Input,
-  Textarea,
   Grid,
   GridItem,
   Flex
@@ -17,6 +16,7 @@ import { FiSave, FiEdit2, FiMail, FiPhone, FiMapPin, FiCalendar, FiLock } from '
 import type { User, UserUpdate, ChangePasswordRequest } from '../types/auth.js';
 import authService from '../services/authService.js';
 import adminUserService from '../services/adminUserService.js';
+import PhilippineAddressForm from './PhilippineAddressForm';
 
 interface ProfileProps {
   user: User | null;
@@ -551,18 +551,12 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate }) => {
                     <VStack align="stretch" gap={2}>
                       <HStack gap={2}>
                         <FiMapPin />
-                        <Text color="gray.700" fontWeight="600">Address</Text>
+                        <Text color="gray.700" fontWeight="600">Complete Address</Text>
                       </HStack>
-                      <Textarea
-                        value={formData.address || ''}
-                        onChange={(e) => handleInputChange('address', e.target.value)}
-                        placeholder="Enter your full address"
-                        borderRadius="lg"
-                        bg="gray.50"
-                        border="1px solid"
-                        borderColor="gray.200"
-                        _focus={{ bg: "white", borderColor: "blue.500" }}
-                        rows={3}
+                      <PhilippineAddressForm
+                        onAddressChange={(address) => handleInputChange('address', address)}
+                        initialAddress={formData.address || ''}
+                        darkMode={false}
                       />
                     </VStack>
                   </VStack>

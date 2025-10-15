@@ -8,6 +8,8 @@ export interface CartItem {
   product_name: string;
   product_price: number;
   product_image?: string;
+  product_minimum_order?: number;
+  product_unit?: string;
   user_first_name: string;
   user_last_name: string;
   user_username: string;

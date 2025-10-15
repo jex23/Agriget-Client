@@ -13,15 +13,16 @@ import {
   Badge,
   IconButton,
   Image,
+  Grid,
+  Center,
 } from '@chakra-ui/react';
-import { FiSearch, FiGrid, FiList, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { FiSearch, FiGrid, FiList, FiChevronLeft, FiChevronRight, FiTruck, FiShield, FiAward, FiPercent, FiTag, FiShoppingCart } from 'react-icons/fi';
 import slide1 from '../images/1.png';
 import slide2 from '../images/2.png';
 import slide3 from '../images/3.png';
 import type { User } from '../types/auth.js';
 import authService from '../services/authService.js';
 import Header from '../components/Header.js';
-import Footer from '../components/Footer.js';
 import Sidebar from '../components/Sidebar.js';
 import Product from '../components/Product.js';
 import { productService } from '../services/productService';
@@ -75,46 +76,82 @@ const Home: React.FC = () => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        
+        console.log('🏠 [Home] fetchProducts started');
+
         // Try to get products from cache first
         const cachedProducts = cacheService.getCachedProducts();
-        
+
         if (cachedProducts && cachedProducts.length > 0) {
-          console.log('Loading products from cache');
+          console.log('🏠 [Home] Loading products from cache');
+          console.log('🏠 [Home] Cached products count:', cachedProducts.length);
+          console.log('🏠 [Home] First 3 cached products:', cachedProducts.slice(0, 3));
           setProducts(cachedProducts);
-          
+
           // Extract unique categories from cached products
           const uniqueCategories = ['All', ...new Set(cachedProducts.map(p => p.category).filter((cat): cat is string => Boolean(cat)))];
+          console.log('🏠 [Home] Categories from cache:', uniqueCategories);
           setCategories(uniqueCategories);
           setLoading(false);
           return;
         }
-        
+
         // If no cache, fetch from API
-        console.log('Fetching products from API');
+        console.log('🏠 [Home] No cache found, fetching products from API');
+        console.log('🏠 [Home] API call parameters:', { is_active: true });
+
         const fetchedProducts = await productService.getProducts({ is_active: true });
+
+        console.log('🏠 [Home] ✅ Products fetched successfully from API');
+        console.log('🏠 [Home] Total products received:', fetchedProducts.length);
+        console.log('🏠 [Home] Full products data:', fetchedProducts);
+        console.log('🏠 [Home] First product details:', fetchedProducts[0]);
+
+        // Log each product's key information
+        fetchedProducts.forEach((product, index) => {
+          console.log(`🏠 [Home] Product ${index + 1}:`, {
+            id: product.id,
+            name: product.name,
+            category: product.category,
+            price: product.price,
+            stock: product.stock_quantity,
+            minimum_order: product.minimum_order,
+            is_active: product.is_active
+          });
+        });
+
         setProducts(fetchedProducts);
-        
+
         // Cache the fetched products (cache for 5 minutes)
         cacheService.cacheProducts(fetchedProducts);
-        
+        console.log('🏠 [Home] Products cached successfully');
+
         // Extract unique categories
         const uniqueCategories = ['All', ...new Set(fetchedProducts.map(p => p.category).filter((cat): cat is string => Boolean(cat)))];
+        console.log('🏠 [Home] Unique categories extracted:', uniqueCategories);
         setCategories(uniqueCategories);
       } catch (err) {
+        console.error('🏠 [Home] ❌ Error fetching products:', err);
+        if (err instanceof Error) {
+          console.error('🏠 [Home] Error message:', err.message);
+          console.error('🏠 [Home] Error stack:', err.stack);
+        }
         setError(err instanceof Error ? err.message : 'Failed to fetch products');
-        
+
         // Try to load from cache even if API fails
         const cachedProducts = cacheService.getCachedProducts();
         if (cachedProducts) {
-          console.log('API failed, loading products from cache as fallback');
+          console.log('🏠 [Home] API failed, loading products from cache as fallback');
+          console.log('🏠 [Home] Fallback cache products count:', cachedProducts.length);
           setProducts(cachedProducts);
           const uniqueCategories = ['All', ...new Set(cachedProducts.map(p => p.category).filter((cat): cat is string => Boolean(cat)))];
           setCategories(uniqueCategories);
           setError(null); // Clear error since we have cached data
+        } else {
+          console.error('🏠 [Home] No cached products available as fallback');
         }
       } finally {
         setLoading(false);
+        console.log('🏠 [Home] fetchProducts completed');
       }
     };
 
@@ -158,6 +195,24 @@ const Home: React.FC = () => {
     }
   };
 
+  const handleClearCart = async () => {
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      `Are you sure you want to remove all ${cartItems.length} item(s) from your cart? This action cannot be undone.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await apiCartService.clearCart();
+      await fetchCart();
+    } catch (error) {
+      console.error('🏠 [Home] Failed to clear cart:', error);
+    }
+  };
+
   const getTotalItems = () => {
     const total = cartItems.reduce((sum, item) => sum + item.quantity, 0);
     console.log('🏠 [Home] getTotalItems:', total, 'from', cartItems.length, 'cart items');
@@ -189,17 +244,18 @@ const Home: React.FC = () => {
 
   return (
     <Box className="home-container" bg="gray.50" minH="100vh" color="gray.900">
-      <Header 
-        user={user} 
-        cartItems={getTotalItems()} 
+      <Header
+        user={user}
+        cartItems={getTotalItems()}
         cartItemsData={cartItems}
         onSidebarToggle={handleSidebarToggle}
         isSidebarOpen={isSidebarOpen}
         onRemoveFromCart={handleRemoveFromCart}
+        onRemoveAllFromCart={handleClearCart}
       />
       
       {/* Hero Slideshow */}
-  <Box position="relative" overflow="hidden" bg="transparent">
+      <Box position="relative" overflow="hidden" bg="transparent">
         <Container maxW="container.xl" px={0}>
           <Box position="relative" w="100%" h={{ base: '220px', md: '420px' }}>
             {slides.map((src: any, idx: number) => (
@@ -220,8 +276,6 @@ const Home: React.FC = () => {
                 bg="transparent"
               />
             ))}
-
-            {/* No overlay text - images only */}
 
             {/* Controls */}
             <IconButton
@@ -271,6 +325,108 @@ const Home: React.FC = () => {
           </Box>
         </Container>
       </Box>
+
+      {/* Benefits Bar */}
+      <Box bg="blue.600" py={{ base: 3, md: 4 }}>
+        <Container maxW="container.xl">
+          <Grid
+            templateColumns={{ base: 'repeat(3, 1fr)', md: 'repeat(3, 1fr)' }}
+            gap={{ base: 3, md: 6 }}
+          >
+            <Flex align="center" justify="center" gap={2} color="white">
+              <Box fontSize={{ base: '18px', md: '24px' }}><FiTruck /></Box>
+              <VStack align="start" gap={0}>
+                <Text fontSize={{ base: 'xs', md: 'sm' }} fontWeight="700">Fast Delivery</Text>
+                <Text fontSize={{ base: '2xs', md: 'xs' }} opacity={0.9}>Quick & Reliable</Text>
+              </VStack>
+            </Flex>
+            <Flex align="center" justify="center" gap={2} color="white">
+              <Box fontSize={{ base: '18px', md: '24px' }}><FiShield /></Box>
+              <VStack align="start" gap={0}>
+                <Text fontSize={{ base: 'xs', md: 'sm' }} fontWeight="700">Quality Assured</Text>
+                <Text fontSize={{ base: '2xs', md: 'xs' }} opacity={0.9}>Premium Products</Text>
+              </VStack>
+            </Flex>
+            <Flex align="center" justify="center" gap={2} color="white">
+              <Box fontSize={{ base: '18px', md: '24px' }}><FiAward /></Box>
+              <VStack align="start" gap={0}>
+                <Text fontSize={{ base: 'xs', md: 'sm' }} fontWeight="700">Best Price</Text>
+                <Text fontSize={{ base: '2xs', md: 'xs' }} opacity={0.9}>Competitive Rates</Text>
+              </VStack>
+            </Flex>
+          </Grid>
+        </Container>
+      </Box>
+
+      {/* Promotional Banner */}
+      <Container maxW="container.xl" pt={{ base: 6, md: 8 }} px={{ base: 4, md: 6 }}>
+        <Box
+          bg="blue.600"
+          bgGradient="linear(to-r, blue.600, blue.700)"
+          borderRadius={{ base: 'xl', md: '2xl' }}
+          p={{ base: 6, md: 8 }}
+          position="relative"
+          overflow="hidden"
+          boxShadow="xl"
+        >
+          <Box
+            position="absolute"
+            top="-20px"
+            right="-20px"
+            fontSize="120px"
+            opacity={0.1}
+            transform="rotate(-15deg)"
+            color="white"
+          >
+            <FiPercent />
+          </Box>
+          <Flex
+            direction={{ base: 'column', md: 'row' }}
+            justify="space-between"
+            align="center"
+            gap={4}
+            position="relative"
+            zIndex={1}
+          >
+            <VStack align={{ base: 'center', md: 'start' }} gap={2}>
+              <Badge colorScheme="yellow" fontSize="xs" px={3} py={1} borderRadius="full" fontWeight="700">
+                LIMITED TIME OFFER
+              </Badge>
+              <Heading
+                size={{ base: 'lg', md: 'xl' }}
+                color="white"
+                textAlign={{ base: 'center', md: 'left' }}
+                textShadow="0 2px 4px rgba(0,0,0,0.2)"
+              >
+                Special Discount for Bulk Orders!
+              </Heading>
+              <Text
+                color="white"
+                fontSize={{ base: 'sm', md: 'md' }}
+                textAlign={{ base: 'center', md: 'left' }}
+                textShadow="0 1px 2px rgba(0,0,0,0.2)"
+              >
+                Free shipping above minimum order
+              </Text>
+            </VStack>
+            <Button
+              size={{ base: 'md', md: 'lg' }}
+              colorScheme="yellow"
+              color="gray.800"
+              fontWeight="700"
+              px={8}
+              h={{ base: '44px', md: '52px' }}
+              borderRadius="full"
+              boxShadow="lg"
+              _hover={{ transform: 'translateY(-2px)', boxShadow: '2xl' }}
+              transition="all 0.2s"
+              flexShrink={0}
+            >
+              Shop Now
+            </Button>
+          </Flex>
+        </Box>
+      </Container>
 
 
       {/* Main Content */}
@@ -350,22 +506,34 @@ const Home: React.FC = () => {
             </Box>
 
             {/* Category and Results Header */}
-            <Flex justify="space-between" align={{ base: "flex-start", md: "center" }} direction={{ base: "column", md: "row" }} gap={{ base: 3, md: 0 }}>
-              <VStack align="start" gap={1}>
-                <Heading size={{ base: "md", md: "lg" }} color="gray.800">
-                  {selectedCategory === 'All' ? 'All Products' : selectedCategory}
-                </Heading>
-                <Text color="gray.600" fontSize={{ base: "xs", md: "sm" }}>
-                  {filteredProducts.length} products found
-                </Text>
-              </VStack>
-              
-              {searchQuery && (
-                <Badge colorScheme="blue" fontSize={{ base: "xs", md: "sm" }} px={3} py={1} borderRadius="full" alignSelf={{ base: "flex-start", md: "center" }}>
-                  Searching: "{searchQuery}"
-                </Badge>
-              )}
-            </Flex>
+            <Box
+              bg="white"
+              borderRadius={{ base: "lg", md: "xl" }}
+              p={{ base: 4, md: 6 }}
+              boxShadow="sm"
+              border="1px solid"
+              borderColor="gray.200"
+            >
+              <Flex justify="space-between" align={{ base: "flex-start", md: "center" }} direction={{ base: "column", md: "row" }} gap={{ base: 3, md: 0 }}>
+                <VStack align="start" gap={2}>
+                  <HStack>
+                    <Box fontSize="24px"><FiTag /></Box>
+                    <Heading size={{ base: "md", md: "lg" }} color="gray.800">
+                      {selectedCategory === 'All' ? 'Browse All Products' : selectedCategory}
+                    </Heading>
+                  </HStack>
+                  <Text color="gray.600" fontSize={{ base: "xs", md: "sm" }}>
+                    Discover {filteredProducts.length} quality products at competitive prices
+                  </Text>
+                </VStack>
+
+                {searchQuery && (
+                  <Badge colorScheme="blue" fontSize={{ base: "xs", md: "sm" }} px={4} py={2} borderRadius="full" alignSelf={{ base: "flex-start", md: "center" }}>
+                    Searching: "{searchQuery}"
+                  </Badge>
+                )}
+              </Flex>
+            </Box>
 
             {/* Products Grid */}
             {loading ? (
@@ -442,8 +610,235 @@ const Home: React.FC = () => {
         </Flex>
       </Container>
 
+      {/* Why Choose Us Section */}
+      <Box bg="gray.100" py={{ base: 12, md: 16 }} mt={8}>
+        <Container maxW="container.xl">
+          <VStack gap={8}>
+            <VStack gap={3} textAlign="center">
+              <Heading size={{ base: "lg", md: "xl" }} color="gray.800">
+                Why Customers Choose Us
+              </Heading>
+              <Text color="gray.600" fontSize={{ base: "sm", md: "md" }} maxW="600px">
+                Join thousands of satisfied customers who trust us for their construction material needs
+              </Text>
+            </VStack>
 
-      <Footer />
+            <SimpleGrid columns={{ base: 1, md: 3 }} gap={6} w="full">
+              <Box
+                bg="white"
+                p={{ base: 6, md: 8 }}
+                borderRadius="xl"
+                boxShadow="md"
+                textAlign="center"
+                transition="all 0.3s"
+                _hover={{ transform: 'translateY(-4px)', boxShadow: 'xl' }}
+              >
+                <Center mb={4}>
+                  <Box
+                    bg="green.100"
+                    p={4}
+                    borderRadius="full"
+                    color="green.600"
+                    fontSize="32px"
+                  >
+                    <FiShield />
+                  </Box>
+                </Center>
+                <Heading size="md" mb={3} color="gray.800">
+                  Guaranteed Quality
+                </Heading>
+                <Text color="gray.600" fontSize="sm">
+                  All products are carefully inspected and certified to meet the highest industry standards
+                </Text>
+              </Box>
+
+              <Box
+                bg="white"
+                p={{ base: 6, md: 8 }}
+                borderRadius="xl"
+                boxShadow="md"
+                textAlign="center"
+                transition="all 0.3s"
+                _hover={{ transform: 'translateY(-4px)', boxShadow: 'xl' }}
+              >
+                <Center mb={4}>
+                  <Box
+                    bg="blue.100"
+                    p={4}
+                    borderRadius="full"
+                    color="blue.600"
+                    fontSize="32px"
+                  >
+                    <FiTruck />
+                  </Box>
+                </Center>
+                <Heading size="md" mb={3} color="gray.800">
+                  On-Time Delivery
+                </Heading>
+                <Text color="gray.600" fontSize="sm">
+                  Fast and reliable delivery service ensuring your materials arrive exactly when you need them
+                </Text>
+              </Box>
+
+              <Box
+                bg="white"
+                p={{ base: 6, md: 8 }}
+                borderRadius="xl"
+                boxShadow="md"
+                textAlign="center"
+                transition="all 0.3s"
+                _hover={{ transform: 'translateY(-4px)', boxShadow: 'xl' }}
+              >
+                <Center mb={4}>
+                  <Box
+                    bg="orange.100"
+                    p={4}
+                    borderRadius="full"
+                    color="orange.600"
+                    fontSize="32px"
+                  >
+                    <FiAward />
+                  </Box>
+                </Center>
+                <Heading size="md" mb={3} color="gray.800">
+                  Best Value
+                </Heading>
+                <Text color="gray.600" fontSize="sm">
+                  Competitive pricing with bulk discounts and loyalty rewards for regular customers
+                </Text>
+              </Box>
+            </SimpleGrid>
+          </VStack>
+        </Container>
+      </Box>
+
+      {/* Call to Action Section */}
+      <Container maxW="container.xl" py={{ base: 12, md: 16 }} px={{ base: 4, md: 6 }}>
+        <Box
+          bg="blue.600"
+          bgGradient="linear(to-br, blue.600, blue.700)"
+          borderRadius="2xl"
+          p={{ base: 8, md: 12 }}
+          textAlign="center"
+          position="relative"
+          overflow="hidden"
+          boxShadow="2xl"
+        >
+          <Box
+            position="absolute"
+            top="-50px"
+            left="-50px"
+            fontSize="200px"
+            opacity={0.1}
+            transform="rotate(-15deg)"
+          >
+            <FiShoppingCart />
+          </Box>
+          <Box
+            position="absolute"
+            bottom="-50px"
+            right="-50px"
+            fontSize="200px"
+            opacity={0.1}
+            transform="rotate(15deg)"
+          >
+            <FiShoppingCart />
+          </Box>
+
+          <VStack gap={6} position="relative" zIndex={1}>
+            <Badge
+              colorScheme="yellow"
+              fontSize={{ base: "xs", md: "sm" }}
+              px={4}
+              py={2}
+              borderRadius="full"
+              fontWeight="700"
+            >
+              START SAVING TODAY
+            </Badge>
+            <Heading
+              size={{ base: "xl", md: "2xl" }}
+              color="white"
+              maxW="800px"
+            >
+              Ready to Start Your Next Project?
+            </Heading>
+            <Text
+              color="white"
+              fontSize={{ base: "md", md: "lg" }}
+              maxW="600px"
+              opacity={0.95}
+            >
+              Browse our complete catalog of construction materials and get the best prices with fast delivery
+            </Text>
+            <HStack gap={4} flexWrap="wrap" justify="center" pt={4}>
+              <Button
+                size="lg"
+                colorScheme="yellow"
+                color="gray.800"
+                fontWeight="700"
+                px={10}
+                h="56px"
+                borderRadius="full"
+                fontSize="lg"
+                boxShadow="xl"
+                _hover={{
+                  transform: 'translateY(-2px)',
+                  boxShadow: '2xl'
+                }}
+                transition="all 0.2s"
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              >
+                Browse Products
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                color="white"
+                borderColor="white"
+                borderWidth="2px"
+                fontWeight="700"
+                px={10}
+                h="56px"
+                borderRadius="full"
+                fontSize="lg"
+                _hover={{
+                  bg: 'whiteAlpha.200',
+                  transform: 'translateY(-2px)'
+                }}
+                transition="all 0.2s"
+              >
+                Contact Us
+              </Button>
+            </HStack>
+
+            {/* Trust Badges */}
+            <HStack
+              gap={{ base: 4, md: 8 }}
+              pt={8}
+              flexWrap="wrap"
+              justify="center"
+              color="white"
+              opacity={0.9}
+            >
+              <VStack gap={1}>
+                <Text fontSize="2xl" fontWeight="800">5,000+</Text>
+                <Text fontSize="sm">Happy Customers</Text>
+              </VStack>
+              <Box w="1px" h="40px" bg="whiteAlpha.400" display={{ base: 'none', md: 'block' }} />
+              <VStack gap={1}>
+                <Text fontSize="2xl" fontWeight="800">10,000+</Text>
+                <Text fontSize="sm">Orders Delivered</Text>
+              </VStack>
+              <Box w="1px" h="40px" bg="whiteAlpha.400" display={{ base: 'none', md: 'block' }} />
+              <VStack gap={1}>
+                <Text fontSize="2xl" fontWeight="800">99%</Text>
+                <Text fontSize="sm">Satisfaction Rate</Text>
+              </VStack>
+            </HStack>
+          </VStack>
+        </Box>
+      </Container>
     </Box>
   );
 };

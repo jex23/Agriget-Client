@@ -186,30 +186,6 @@ const AdminUser: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) {
-      return;
-    }
-
-    try {
-      await adminUserService.deleteUser(id);
-      toaster.create({
-        title: 'Success',
-        description: 'User deleted successfully',
-        type: 'success',
-        duration: 3000,
-      });
-      fetchUsers();
-    } catch (err) {
-      toaster.create({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Failed to delete user',
-        type: 'error',
-        duration: 3000,
-      });
-    }
-  };
-
   const handleEdit = (user: UserResponse) => {
     setSelectedUser(user);
     setFormData({
@@ -338,17 +314,11 @@ const AdminUser: React.FC = () => {
                       <td>{formatDate(user.created_at)}</td>
                       <td>
                         <div className="admin-user-actions">
-                          <button 
+                          <button
                             className="admin-user-edit-btn"
                             onClick={() => handleEdit(user)}
                           >
                             ✏️
-                          </button>
-                          <button 
-                            className="admin-user-delete-btn"
-                            onClick={() => handleDelete(user.id)}
-                          >
-                            🗑️
                           </button>
                         </div>
                       </td>

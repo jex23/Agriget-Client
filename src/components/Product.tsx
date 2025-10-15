@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -7,7 +7,8 @@ import {
   Badge,
   IconButton,
   Flex,
-  Image
+  Image,
+  VStack
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { FiHeart, FiShoppingCart, FiPlus, FiMinus } from 'react-icons/fi';
@@ -32,7 +33,22 @@ const Product: React.FC<ProductProps> = ({
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [showQuantityControls, setShowQuantityControls] = useState(false);
-  const [localQuantity, setLocalQuantity] = useState(1); // Local quantity state starting at 1
+  const minimumOrder = product.minimum_order || 1;
+  const [localQuantity, setLocalQuantity] = useState(minimumOrder); // Local quantity state starting at minimum order
+  const [showMinimumOrderWarning, setShowMinimumOrderWarning] = useState(false);
+
+  // Update localQuantity when minimum_order changes
+  useEffect(() => {
+    setLocalQuantity(minimumOrder);
+  }, [minimumOrder]);
+
+  // Log product minimum_order for debugging
+  useEffect(() => {
+    console.log('🛒 [Product Card] Product:', product.name);
+    console.log('🛒 [Product Card] product.minimum_order from API:', product.minimum_order);
+    console.log('🛒 [Product Card] minimumOrder (with fallback):', minimumOrder);
+    console.log('🛒 [Product Card] Will show badge:', minimumOrder >= 1);
+  }, [product, minimumOrder]);
 
   const handleAddToCart = async () => {
     console.log('🛒 [Product] handleAddToCart clicked for product:', product.id, product.name);
@@ -53,30 +69,38 @@ const Product: React.FC<ProductProps> = ({
       return;
     }
 
-    // Subsequent clicks: make API call with selected quantity
+    // Subsequent clicks: Validate minimum order before API call
+    if (localQuantity < minimumOrder) {
+      console.log('🛒 [Product] Quantity below minimum order, showing warning');
+      setShowMinimumOrderWarning(true);
+      setTimeout(() => setShowMinimumOrderWarning(false), 3000);
+      return;
+    }
+
     setIsLoading(true);
     try {
       console.log('🛒 [Product] Making API call - calling apiCartService.addToCart with:', {
         product_id: product.id,
         quantity: localQuantity
       });
-      
+
       const response = await apiCartService.addToCart({
         product_id: product.id,
         quantity: localQuantity
       });
-      
+
       console.log('🛒 [Product] API response:', response);
-      
+
       // Hide quantity controls and reset quantity after successful API call
       console.log('🛒 [Product] Hiding quantity controls and resetting quantity after successful API call');
       setShowQuantityControls(false);
-      setLocalQuantity(1); // Reset to 1 for next time
-      
+      setLocalQuantity(minimumOrder); // Reset to minimum order for next time
+      setShowMinimumOrderWarning(false);
+
       // Trigger cart update callback
       console.log('🛒 [Product] Calling onCartUpdate callback');
       onCartUpdate?.();
-      
+
       console.log('🛒 [Product] Add to cart completed successfully');
     } catch (error) {
       console.error('🛒 [Product] Failed to add to cart:', error);
@@ -97,15 +121,25 @@ const Product: React.FC<ProductProps> = ({
       return;
     }
 
+    const quantityToAdd = showQuantityControls ? localQuantity : minimumOrder;
+
+    // Validate minimum order
+    if (quantityToAdd < minimumOrder) {
+      console.log('🛒 [Product] Quantity below minimum order, showing warning');
+      setShowMinimumOrderWarning(true);
+      setTimeout(() => setShowMinimumOrderWarning(false), 3000);
+      return;
+    }
+
     setIsLoading(true);
     try {
       // Add to cart with current local quantity
       await apiCartService.addToCart({
         product_id: product.id,
-        quantity: showQuantityControls ? localQuantity : 1
+        quantity: quantityToAdd
       });
       onCartUpdate?.();
-      
+
       // Navigate to cart for immediate checkout
       navigate(ROUTES.CART);
     } catch (error) {
@@ -121,13 +155,15 @@ const Product: React.FC<ProductProps> = ({
   };
 
   const handleQuantityDecrease = () => {
-    if (localQuantity > 1) {
+    if (localQuantity > minimumOrder) {
       console.log('🛒 [Product] Decreasing local quantity from', localQuantity, 'to', localQuantity - 1);
       setLocalQuantity(prev => prev - 1);
+      setShowMinimumOrderWarning(false);
     } else {
-      console.log('🛒 [Product] Minimum quantity reached, hiding controls');
+      console.log('🛒 [Product] Minimum order quantity reached, hiding controls');
       setShowQuantityControls(false);
-      setLocalQuantity(1);
+      setLocalQuantity(minimumOrder);
+      setShowMinimumOrderWarning(false);
     }
   };
 
@@ -143,6 +179,10 @@ const Product: React.FC<ProductProps> = ({
       default:
         return 'gray';
     }
+  };
+
+  const handleProductClick = () => {
+    navigate(`/product/${product.id}`);
   };
 
   return (
@@ -169,13 +209,15 @@ const Product: React.FC<ProductProps> = ({
       mx="auto"
     >
       {/* Product Image Container */}
-      <Box 
+      <Box
         position="relative"
         height={{ base: "180px", sm: "200px", md: "200px" }}
         width="100%"
         bg="gray.50"
         overflow="hidden"
         flexShrink={0}
+        cursor="pointer"
+        onClick={handleProductClick}
       >
         {/* Wishlist Button */}
         <IconButton
@@ -280,8 +322,8 @@ const Product: React.FC<ProductProps> = ({
         )}
 
         {/* Product Name */}
-        <Box 
-          className="product-name" 
+        <Box
+          className="product-name"
           fontSize={{ base: "md", md: "lg" }}
           fontWeight="700"
           color="gray.900"
@@ -289,6 +331,10 @@ const Product: React.FC<ProductProps> = ({
           mb={2}
           minHeight={{ base: "2rem", md: "2.5rem" }}
           overflow="hidden"
+          cursor="pointer"
+          onClick={handleProductClick}
+          transition="color 0.2s"
+          _hover={{ color: "blue.600" }}
           css={{
             display: "-webkit-box",
             WebkitLineClamp: 2,
@@ -299,9 +345,29 @@ const Product: React.FC<ProductProps> = ({
         </Box>
 
         {/* Stock Information */}
-        <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={3}>
+        <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={2}>
           {product.stock_quantity} {product.unit} available
         </Text>
+
+        {/* Minimum Order Information */}
+        <VStack align="start" gap={1} mb={3}>
+          <Badge
+            colorScheme={minimumOrder > 1 ? "orange" : "gray"}
+            size="sm"
+            px={2}
+            py={1}
+            borderRadius="md"
+            fontSize="2xs"
+            fontWeight="600"
+          >
+            Min. Order: {minimumOrder} {product.unit}
+          </Badge>
+          {showMinimumOrderWarning && (
+            <Text fontSize="2xs" color="red.500" fontWeight="600">
+              ⚠️ Please order at least {minimumOrder} {product.unit}
+            </Text>
+          )}
+        </VStack>
 
         {/* Pricing */}
         <Box className="product-pricing" mb={4}>
@@ -323,59 +389,68 @@ const Product: React.FC<ProductProps> = ({
         <Box className="product-actions" mt="auto">
           {/* Quantity Controls */}
           {showQuantityControls && (
-            <HStack 
-              className="product-quantity-controls" 
-              justify="space-between" 
-              width="100%"
-              bg="gray.50"
-              borderRadius="12px"
-              p={2}
-              mb={3}
-              border="1px solid"
-              borderColor="gray.200"
-            >
-              <IconButton
-                aria-label="Decrease quantity"
-                size="sm"
-                variant="solid"
-                colorScheme="blue"
-                bg="blue.500"
-                color="white"
-                _hover={{ bg: 'blue.600' }}
-                _active={{ bg: 'blue.700' }}
-                _focus={{ boxShadow: 'none' }}
-                onClick={handleQuantityDecrease}
-                disabled={isLoading || product.stock_quantity === 0 || !product.is_active}
-                borderRadius="full"
+            <Box mb={3}>
+              <HStack
+                className="product-quantity-controls"
+                justify="space-between"
+                width="100%"
+                bg={localQuantity < minimumOrder ? "red.50" : "gray.50"}
+                borderRadius="12px"
+                p={2}
+                border="2px solid"
+                borderColor={localQuantity < minimumOrder ? "red.300" : "gray.200"}
+                transition="all 0.2s"
               >
-                <FiMinus />
-              </IconButton>
-              <Text 
-                fontWeight="700" 
-                fontSize="lg"
-                color="gray.800"
-                minW="40px"
-                textAlign="center"
-              >
-                {localQuantity}
-              </Text>
-              <IconButton
-                aria-label="Increase quantity"
-                size="sm"
-                variant="solid"
-                colorScheme="blue"
-                bg="blue.500"
-                color="white"
-                _hover={{ bg: 'blue.600' }}
-                _active={{ bg: 'blue.700' }}
-                _focus={{ boxShadow: 'none' }}
-                onClick={handleQuantityIncrease}
-                disabled={isLoading || product.stock_quantity === 0 || !product.is_active}
-                borderRadius="full"
-              >
-                <FiPlus />
-              </IconButton>
-            </HStack>
+                <IconButton
+                  aria-label="Decrease quantity"
+                  size="sm"
+                  variant="solid"
+                  colorScheme="blue"
+                  bg="blue.500"
+                  color="white"
+                  _hover={{ bg: 'blue.600' }}
+                  _active={{ bg: 'blue.700' }}
+                  _focus={{ boxShadow: 'none' }}
+                  onClick={handleQuantityDecrease}
+                  disabled={isLoading || product.stock_quantity === 0 || !product.is_active}
+                  borderRadius="full"
+                >
+                  <FiMinus />
+                </IconButton>
+                <VStack gap={0}>
+                  <Text
+                    fontWeight="700"
+                    fontSize="lg"
+                    color={localQuantity < minimumOrder ? "red.600" : "gray.800"}
+                    minW="40px"
+                    textAlign="center"
+                  >
+                    {localQuantity}
+                  </Text>
+                  {localQuantity < minimumOrder && (
+                    <Text fontSize="2xs" color="red.500" fontWeight="600">
+                      Below min
+                    </Text>
+                  )}
+                </VStack>
+                <IconButton
+                  aria-label="Increase quantity"
+                  size="sm"
+                  variant="solid"
+                  colorScheme="blue"
+                  bg="blue.500"
+                  color="white"
+                  _hover={{ bg: 'blue.600' }}
+                  _active={{ bg: 'blue.700' }}
+                  _focus={{ boxShadow: 'none' }}
+                  onClick={handleQuantityIncrease}
+                  disabled={isLoading || product.stock_quantity === 0 || !product.is_active}
+                  borderRadius="full"
+                >
+                  <FiPlus />
+                </IconButton>
+              </HStack>
+            </Box>
           )}
 
           {/* Add to Cart Button */}

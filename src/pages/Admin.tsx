@@ -11,6 +11,14 @@ import {
   SimpleGrid,
   Badge
 } from '@chakra-ui/react';
+import {
+  SelectContent,
+  SelectItem,
+  SelectRoot,
+  SelectTrigger,
+  SelectValueText,
+} from '@chakra-ui/react/select';
+import { createListCollection } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import type { User } from '../types/auth.js';
 import type { Product } from '../types/product.js';
@@ -49,7 +57,18 @@ const Admin: React.FC = () => {
   const [dataLoading, setDataLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
   const [isHovered, setIsHovered] = useState(false);
+  const [salesPeriod, setSalesPeriod] = useState<'day' | 'week' | 'month' | 'year'>('month');
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
   const navigate = useNavigate();
+
+  const salesPeriodOptions = createListCollection({
+    items: [
+      { label: 'Today', value: 'day' },
+      { label: 'This Week', value: 'week' },
+      { label: 'This Month', value: 'month' },
+      { label: 'This Year', value: 'year' },
+    ],
+  });
 
   // Calculate sidebar width for main content adjustment
   const getSidebarWidth = () => {
@@ -163,19 +182,25 @@ const Admin: React.FC = () => {
   const fetchDashboardData = async () => {
     try {
       setDataLoading(true);
-      
+
       // Fetch all data in parallel
       const [orders, products, users] = await Promise.all([
         orderService.getAllOrders().catch(() => []),
         productService.getProducts().catch(() => []),
         adminUserService.getAllUsers().catch(() => [])
       ]);
-      
+
+      // Store all orders for sales report filtering
+      setAllOrders(orders);
+
       // Calculate statistics
       const totalRevenue = orders.reduce((sum, order) => {
-        return order.order_status === 'completed' && order.payment_status === 'paid'
-          ? sum + order.total_amount
-          : sum;
+        if (order.order_status === 'completed' && order.payment_status === 'paid') {
+          const productTotal = order.total_amount;
+          const shippingFee = order.free_shipping ? 0 : (order.shipping_fee || 0);
+          return sum + productTotal + shippingFee;
+        }
+        return sum;
       }, 0);
       
       const productsInStock = products.filter(product => 
@@ -305,6 +330,66 @@ const Admin: React.FC = () => {
     return null;
   };
 
+  const calculateSalesForPeriod = (period: 'day' | 'week' | 'month' | 'year') => {
+    const now = new Date();
+    const startOfPeriod = new Date();
+
+    switch (period) {
+      case 'day':
+        startOfPeriod.setHours(0, 0, 0, 0);
+        break;
+      case 'week':
+        const dayOfWeek = now.getDay();
+        startOfPeriod.setDate(now.getDate() - dayOfWeek);
+        startOfPeriod.setHours(0, 0, 0, 0);
+        break;
+      case 'month':
+        startOfPeriod.setDate(1);
+        startOfPeriod.setHours(0, 0, 0, 0);
+        break;
+      case 'year':
+        startOfPeriod.setMonth(0, 1);
+        startOfPeriod.setHours(0, 0, 0, 0);
+        break;
+    }
+
+    const filteredOrders = allOrders.filter(order => {
+      const orderDate = new Date(order.created_at);
+      return orderDate >= startOfPeriod && orderDate <= now;
+    });
+
+    const completedOrders = filteredOrders.filter(
+      order => order.order_status === 'completed' && order.payment_status === 'paid'
+    );
+
+    // Calculate product sales and shipping fees separately
+    const productSales = completedOrders.reduce((sum, order) => sum + order.total_amount, 0);
+    const totalShippingFees = completedOrders.reduce((sum, order) => {
+      return sum + (order.free_shipping ? 0 : (order.shipping_fee || 0));
+    }, 0);
+    const totalSales = productSales + totalShippingFees;
+
+    const totalOrders = filteredOrders.length;
+    const completedOrdersCount = completedOrders.length;
+    const pendingOrdersCount = filteredOrders.filter(order => order.order_status === 'pending').length;
+
+    // Count orders with free shipping
+    const freeShippingCount = completedOrders.filter(order => order.free_shipping).length;
+    const paidShippingCount = completedOrdersCount - freeShippingCount;
+
+    return {
+      totalSales,
+      productSales,
+      totalShippingFees,
+      totalOrders,
+      completedOrdersCount,
+      pendingOrdersCount,
+      averageOrderValue: completedOrdersCount > 0 ? totalSales / completedOrdersCount : 0,
+      freeShippingCount,
+      paidShippingCount,
+    };
+  };
+
   if (isLoading) {
     return (
       <Box display="flex" alignItems="center" justifyContent="center" minHeight="100vh">
@@ -392,6 +477,212 @@ const Admin: React.FC = () => {
               <Text className="admin-stat-help" fontSize="xs" color="gray.500">Products available</Text>
             </Box>
           </SimpleGrid>
+
+          {/* Sales Report Section */}
+          <Box className="admin-section">
+            <Flex justify="space-between" align="center" mb={4} wrap="wrap" gap={4}>
+              <Heading className="admin-section-title" size="lg">
+                📊 Sales Report
+              </Heading>
+              <HStack gap={3}>
+                <Text fontSize="sm" color="gray.600">Filter by:</Text>
+                <SelectRoot
+                  collection={salesPeriodOptions}
+                  value={[salesPeriod]}
+                  onValueChange={(details) => {
+                    if (details.value && details.value.length > 0) {
+                      setSalesPeriod(details.value[0] as 'day' | 'week' | 'month' | 'year');
+                    }
+                  }}
+                  size="sm"
+                  width="150px"
+                >
+                  <SelectTrigger style={{
+                    backgroundColor: '#ffffff',
+                    color: '#2d3748',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '0.375rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingRight: '12px'
+                  }}>
+                    <SelectValueText placeholder="Select period" />
+                    <Text ml={2} fontSize="sm">▼</Text>
+                  </SelectTrigger>
+                  <SelectContent style={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '0.375rem'
+                  }}>
+                    {salesPeriodOptions.items.map((option) => (
+                      <SelectItem
+                        key={option.value}
+                        item={option.value}
+                        style={{
+                          backgroundColor: '#ffffff',
+                          color: '#2d3748'
+                        }}
+                      >
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </SelectRoot>
+              </HStack>
+            </Flex>
+
+            {(() => {
+              const salesData = calculateSalesForPeriod(salesPeriod);
+              const periodLabel = salesPeriodOptions.items.find(item => item.value === salesPeriod)?.label || 'This Period';
+
+              return (
+                <>
+                  <SimpleGrid columns={{ base: 1, md: 2, lg: 6 }} gap={6} mb={6}>
+                    <Box bg="green.50" p={5} borderRadius="lg" border="2px solid" borderColor="green.200">
+                      <VStack align="start" gap={2}>
+                        <HStack>
+                          <Text fontSize="2xl">💰</Text>
+                          <Text fontSize="sm" color="green.700" fontWeight="semibold">Total Revenue</Text>
+                        </HStack>
+                        <Text fontSize="2xl" fontWeight="bold" color="green.700">
+                          ₱{salesData.totalSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </Text>
+                        <Text fontSize="xs" color="green.600">{periodLabel}</Text>
+                      </VStack>
+                    </Box>
+
+                    <Box bg="cyan.50" p={5} borderRadius="lg" border="2px solid" borderColor="cyan.200">
+                      <VStack align="start" gap={2}>
+                        <HStack>
+                          <Text fontSize="2xl">🛍️</Text>
+                          <Text fontSize="sm" color="cyan.700" fontWeight="semibold">Product Sales</Text>
+                        </HStack>
+                        <Text fontSize="2xl" fontWeight="bold" color="cyan.700">
+                          ₱{salesData.productSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </Text>
+                        <Text fontSize="xs" color="cyan.600">Excluding shipping</Text>
+                      </VStack>
+                    </Box>
+
+                    <Box bg="indigo.50" p={5} borderRadius="lg" border="2px solid" borderColor="indigo.200">
+                      <VStack align="start" gap={2}>
+                        <HStack>
+                          <Text fontSize="2xl">🚚</Text>
+                          <Text fontSize="sm" color="indigo.700" fontWeight="semibold">Shipping Fees</Text>
+                        </HStack>
+                        <Text fontSize="2xl" fontWeight="bold" color="indigo.700">
+                          ₱{salesData.totalShippingFees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </Text>
+                        <Text fontSize="xs" color="indigo.600">
+                          {salesData.paidShippingCount} paid, {salesData.freeShippingCount} free
+                        </Text>
+                      </VStack>
+                    </Box>
+
+                    <Box bg="purple.50" p={5} borderRadius="lg" border="2px solid" borderColor="purple.200">
+                      <VStack align="start" gap={2}>
+                        <HStack>
+                          <Text fontSize="2xl">✅</Text>
+                          <Text fontSize="sm" color="purple.700" fontWeight="semibold">Completed</Text>
+                        </HStack>
+                        <Text fontSize="2xl" fontWeight="bold" color="purple.700">
+                          {salesData.completedOrdersCount.toLocaleString()}
+                        </Text>
+                        <Text fontSize="xs" color="purple.600">Paid orders</Text>
+                      </VStack>
+                    </Box>
+
+                    <Box bg="orange.50" p={5} borderRadius="lg" border="2px solid" borderColor="orange.200">
+                      <VStack align="start" gap={2}>
+                        <HStack>
+                          <Text fontSize="2xl">⏳</Text>
+                          <Text fontSize="sm" color="orange.700" fontWeight="semibold">Pending</Text>
+                        </HStack>
+                        <Text fontSize="2xl" fontWeight="bold" color="orange.700">
+                          {salesData.pendingOrdersCount.toLocaleString()}
+                        </Text>
+                        <Text fontSize="xs" color="orange.600">Awaiting process</Text>
+                      </VStack>
+                    </Box>
+
+                    <Box bg="teal.50" p={5} borderRadius="lg" border="2px solid" borderColor="teal.200">
+                      <VStack align="start" gap={2}>
+                        <HStack>
+                          <Text fontSize="2xl">📊</Text>
+                          <Text fontSize="sm" color="teal.700" fontWeight="semibold">Avg Order</Text>
+                        </HStack>
+                        <Text fontSize="2xl" fontWeight="bold" color="teal.700">
+                          ₱{salesData.averageOrderValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </Text>
+                        <Text fontSize="xs" color="teal.600">Per order</Text>
+                      </VStack>
+                    </Box>
+                  </SimpleGrid>
+
+                  <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+                    <Box bg="gray.50" p={4} borderRadius="lg" border="1px solid" borderColor="gray.200">
+                      <VStack align="start" gap={2}>
+                        <Text fontSize="sm" fontWeight="bold" color="gray.700">Revenue Breakdown</Text>
+                        <HStack justify="space-between" width="100%">
+                          <Text fontSize="xs" color="gray.600">Product Sales:</Text>
+                          <Text fontSize="sm" fontWeight="semibold" color="cyan.700">
+                            ₱{salesData.productSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </Text>
+                        </HStack>
+                        <HStack justify="space-between" width="100%">
+                          <Text fontSize="xs" color="gray.600">Shipping Fees:</Text>
+                          <Text fontSize="sm" fontWeight="semibold" color="indigo.700">
+                            ₱{salesData.totalShippingFees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </Text>
+                        </HStack>
+                        <Box borderTop="1px solid" borderColor="gray.300" pt={2} width="100%">
+                          <HStack justify="space-between" width="100%">
+                            <Text fontSize="sm" fontWeight="bold" color="gray.700">Total Revenue:</Text>
+                            <Text fontSize="md" fontWeight="bold" color="green.700">
+                              ₱{salesData.totalSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </Text>
+                          </HStack>
+                        </Box>
+                      </VStack>
+                    </Box>
+
+                    <Box bg="gray.50" p={4} borderRadius="lg" border="1px solid" borderColor="gray.200">
+                      <VStack align="start" gap={2}>
+                        <Text fontSize="sm" fontWeight="bold" color="gray.700">Performance Metrics</Text>
+                        <HStack justify="space-between" width="100%">
+                          <Text fontSize="xs" color="gray.600">Completion Rate:</Text>
+                          <Text fontSize="sm" fontWeight="semibold" color="purple.700">
+                            {salesData.totalOrders > 0
+                              ? `${Math.round((salesData.completedOrdersCount / salesData.totalOrders) * 100)}%`
+                              : 'N/A'}
+                          </Text>
+                        </HStack>
+                        <HStack justify="space-between" width="100%">
+                          <Text fontSize="xs" color="gray.600">Free Shipping Rate:</Text>
+                          <Text fontSize="sm" fontWeight="semibold" color="green.700">
+                            {salesData.completedOrdersCount > 0
+                              ? `${Math.round((salesData.freeShippingCount / salesData.completedOrdersCount) * 100)}%`
+                              : 'N/A'}
+                          </Text>
+                        </HStack>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          colorScheme="blue"
+                          onClick={() => navigate(ROUTES.ADMIN_ORDERS)}
+                          width="100%"
+                          mt={2}
+                        >
+                          View All Orders →
+                        </Button>
+                      </VStack>
+                    </Box>
+                  </SimpleGrid>
+                </>
+              );
+            })()}
+          </Box>
 
           {/* Priority Orders Section */}
           <Box className="admin-section">
@@ -510,7 +801,9 @@ const Admin: React.FC = () => {
                               <Text fontSize="sm" color="gray.600">
                                 {order.user_first_name} {order.user_last_name}
                               </Text>
-                              <Text fontWeight="bold" color="red.600">₱{order.total_amount.toFixed(2)}</Text>
+                              <Text fontWeight="bold" color="red.600">
+                                ₱{((order.total_amount || 0) + (order.free_shipping ? 0 : (order.shipping_fee || 0))).toFixed(2)}
+                              </Text>
                             </HStack>
                             <HStack gap={4} wrap="wrap">
                               <Badge colorScheme={getStatusColor(order.order_status)}>
@@ -563,7 +856,9 @@ const Admin: React.FC = () => {
                             </Text>
                           </HStack>
                           <HStack gap={2}>
-                            <Text fontWeight="bold" fontSize="sm" color="blue.600">₱{order.total_amount.toFixed(2)}</Text>
+                            <Text fontWeight="bold" fontSize="sm" color="blue.600">
+                              ₱{((order.total_amount || 0) + (order.free_shipping ? 0 : (order.shipping_fee || 0))).toFixed(2)}
+                            </Text>
                             <Text fontSize="xs" color="gray.500">
                               {formatDate(order.created_at)}
                             </Text>
@@ -613,7 +908,21 @@ const Admin: React.FC = () => {
                       <tr key={order.id}>
                         <td className="admin-table-cell-bold">#{order.order_number}</td>
                         <td>{order.user_first_name} {order.user_last_name}</td>
-                        <td>₱{order.total_amount.toFixed(2)}</td>
+                        <td>
+                          <VStack align="start" gap={0}>
+                            <Text fontWeight="bold">₱{((order.total_amount || 0) + (order.free_shipping ? 0 : (order.shipping_fee || 0))).toFixed(2)}</Text>
+                            {order.shipping_fee !== undefined && order.shipping_fee > 0 && !order.free_shipping && (
+                              <Text fontSize="xs" color="gray.500">
+                                +₱{order.shipping_fee.toFixed(2)} shipping
+                              </Text>
+                            )}
+                            {order.free_shipping && (
+                              <Text fontSize="xs" color="green.600">
+                                Free shipping
+                              </Text>
+                            )}
+                          </VStack>
+                        </td>
                         <td>
                           <Badge colorScheme={getStatusColor(order.order_status)}>
                             {formatStatus(order.order_status)}

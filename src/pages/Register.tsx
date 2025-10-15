@@ -14,6 +14,7 @@ import type { RegisterCredentials } from '../types/auth.js';
 import authService from '../services/authService.js';
 import { ROUTES } from '../constants/routes.js';
 import { VALIDATION_MESSAGES, VALIDATION_RULES } from '../constants/validation.js';
+import PhilippineAddressForm from '../components/PhilippineAddressForm';
 import './Register.css';
 
 const Register: React.FC = () => {
@@ -25,7 +26,7 @@ const Register: React.FC = () => {
     password: '',
     confirmPassword: '',
     gender: '',
-    phone: '',
+    phone: '09',
     address: '',
     date_of_birth: '',
     role: 'user'
@@ -75,8 +76,14 @@ const Register: React.FC = () => {
       newErrors.gender = 'Gender is required';
     }
 
-    if (!credentials.phone?.trim()) {
-      newErrors.phone = 'Phone number is required';
+    if (!credentials.phone?.trim() || credentials.phone === '09') {
+      newErrors.phone = 'Please enter the remaining 9 digits';
+    } else if (!/^\d+$/.test(credentials.phone)) {
+      newErrors.phone = 'Phone number must contain only numbers';
+    } else if (!credentials.phone.startsWith('09')) {
+      newErrors.phone = 'Phone number must start with 09';
+    } else if (credentials.phone.length !== 11) {
+      newErrors.phone = `Phone number must be 11 digits (${11 - credentials.phone.length} more digit${11 - credentials.phone.length !== 1 ? 's' : ''} needed)`;
     }
 
     if (!credentials.address?.trim()) {
@@ -130,9 +137,20 @@ const Register: React.FC = () => {
   const handleChange = (field: keyof RegisterCredentials) => (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
+    let value = e.target.value;
+
+    // Special handling for phone field - only allow digits and limit to 11 characters
+    if (field === 'phone') {
+      value = value.replace(/\D/g, '').slice(0, 11);
+      // Ensure the phone number always starts with "09"
+      if (!value.startsWith('09') || value.length < 2) {
+        value = '09';
+      }
+    }
+
     setCredentials(prev => ({
       ...prev,
-      [field]: e.target.value
+      [field]: value
     }));
     if (errors[field]) {
       setErrors(prev => ({
@@ -329,7 +347,8 @@ const Register: React.FC = () => {
                   type="tel"
                   value={credentials.phone}
                   onChange={handleChange('phone')}
-                  placeholder="Enter your phone number"
+                  placeholder="Enter remaining 9 digits"
+                  maxLength={11}
                 />
                 {errors.phone && (
                   <Text className="register-field-error" fontSize="sm" mt={1}>
@@ -339,13 +358,22 @@ const Register: React.FC = () => {
               </Box>
 
               <Box w="full">
-                <Text className="register-form-label" mb={2} fontWeight="medium">Address</Text>
-                <Input
-                  className={`register-input ${errors.address ? 'error' : ''}`}
-                  type="text"
-                  value={credentials.address}
-                  onChange={handleChange('address')}
-                  placeholder="Enter your address"
+                <Text className="register-form-label" mb={2} fontWeight="medium">Complete Address</Text>
+                <PhilippineAddressForm
+                  onAddressChange={(address) => {
+                    setCredentials(prev => ({
+                      ...prev,
+                      address: address
+                    }));
+                    if (errors.address && address) {
+                      setErrors(prev => ({
+                        ...prev,
+                        address: undefined
+                      }));
+                    }
+                  }}
+                  initialAddress={credentials.address}
+                  darkMode={false}
                 />
                 {errors.address && (
                   <Text className="register-field-error" fontSize="sm" mt={1}>

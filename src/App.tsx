@@ -7,6 +7,7 @@ import Home from './pages/Home.js';
 import Cart from './pages/Cart.js';
 import Orders from './pages/Orders.js';
 import Profile from './pages/Profile.js';
+import ProductDetails from './pages/ProductDetails.js';
 import Admin from './pages/Admin.js';
 import AdminProduct from './pages/AdminProduct.js';
 import AdminCart from './pages/AdminCart.js';
@@ -21,6 +22,7 @@ import './pages/Home.css';
 import './pages/Cart.css';
 import './pages/Orders.css';
 import './pages/Profile.css';
+import './pages/ProductDetails.css';
 import './pages/Admin.css';
 import './pages/AdminProduct.css';
 import './pages/AdminCart.css';
@@ -197,6 +199,7 @@ const AppContent: React.FC = () => {
             <Route path={ROUTES.CART} element={<Cart />} />
             <Route path={ROUTES.ORDERS} element={<Orders />} />
             <Route path={ROUTES.PROFILE} element={<Profile />} />
+            <Route path={ROUTES.PRODUCT_DETAILS} element={<ProductDetails />} />
             <Route path={ROUTES.ADMIN} element={<Admin />} />
             <Route path={ROUTES.ADMIN_PRODUCTS} element={<AdminProduct />} />
             <Route path={ROUTES.ADMIN_CART} element={<AdminCart />} />

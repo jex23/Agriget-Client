@@ -51,13 +51,13 @@ const AdminProduct: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarState, setSidebarState] = useState({ isExpanded: false, isMobile: window.innerWidth <= 1024 });
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Category and unit mappings
   const categories = [
     { label: 'Hollow Blocks', value: 'Hollow Blocks' },
     { label: 'Gravel', value: 'Gravel' },
-    { label: 'Sand', value: 'Sand' },
-    { label: 'Steel', value: 'Steel' }
+    { label: 'Sand', value: 'Sand' }
   ];
 
   const getUnitsForCategory = (category: string) => {
@@ -148,7 +148,7 @@ const AdminProduct: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim()) {
       toaster.create({
         title: 'Validation Error',
@@ -180,14 +180,16 @@ const AdminProduct: React.FC = () => {
     }
 
     try {
-      const submitData: CreateProductRequest | UpdateProductRequest = { 
+      setSubmitting(true);
+
+      const submitData: CreateProductRequest | UpdateProductRequest = {
         ...formData,
         name: formData.name.trim(),
         description: formData.description?.trim() || '',
         price: Number(formData.price),
         stock_quantity: Number(formData.stock_quantity)
       };
-      
+
       if (imageFile) {
         submitData.image = imageFile;
       }
@@ -209,10 +211,10 @@ const AdminProduct: React.FC = () => {
           duration: 3000,
         });
       }
-      
+
       resetForm();
       setIsModalOpen(false);
-      fetchProducts();
+      await fetchProducts();
     } catch (err) {
       console.error('Product save error:', err);
       toaster.create({
@@ -221,6 +223,8 @@ const AdminProduct: React.FC = () => {
         type: 'error',
         duration: 3000,
       });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -284,6 +288,7 @@ const AdminProduct: React.FC = () => {
     });
     setImageFile(null);
     setSelectedProduct(null);
+    setSubmitting(false);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -487,7 +492,11 @@ const AdminProduct: React.FC = () => {
                 className="admin-action-button"
                 variant="outline"
                 size="sm"
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => {
+                  setIsModalOpen(false);
+                  resetForm();
+                }}
+                disabled={submitting}
               >
                 ✕
               </Button>
@@ -626,16 +635,23 @@ const AdminProduct: React.FC = () => {
                 </VStack>
 
               <Flex justify="flex-end" gap={3} mt={6} pt={4} borderTop="1px solid #e2e8f0">
-                <Button 
+                <Button
                   className="admin-action-button"
-                  variant="outline" 
-                  onClick={() => setIsModalOpen(false)}
+                  variant="outline"
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    resetForm();
+                  }}
+                  disabled={submitting}
                 >
                   Cancel
                 </Button>
-                <Button 
+                <Button
                   className="admin-action-button"
                   type="submit"
+                  disabled={submitting}
+                  loading={submitting}
+                  loadingText={isEditing ? 'Updating...' : 'Creating...'}
                 >
                   {isEditing ? 'Update' : 'Create'} Product
                 </Button>

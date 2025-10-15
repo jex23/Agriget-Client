@@ -11,7 +11,6 @@ import {
   IconButton,
   SimpleGrid,
   Input,
-  Textarea,
   createToaster
 } from '@chakra-ui/react';
 import {
@@ -33,6 +32,7 @@ import { orderService } from '../services/orderService';
 import { ROUTES } from '../constants/routes.js';
 import Header from '../components/Header.js';
 import Footer from '../components/Footer.js';
+import PhilippineAddressForm from '../components/PhilippineAddressForm';
 import './Cart.css';
 
 const Cart: React.FC = () => {
@@ -260,6 +260,26 @@ const Cart: React.FC = () => {
     }, 0);
   };
 
+  // Calculate shipping fee for an item based on minimum order
+  const getShippingFee = (item: CartItem, quantity: number): number => {
+    const minimumOrder = item.product_minimum_order || 1;
+    // If quantity is less than or equal to minimum order, charge shipping fee
+    return quantity <= minimumOrder ? 60 : 0;
+  };
+
+  // Calculate total shipping fees for selected items
+  const getTotalShippingFee = () => {
+    return getSelectedItems().reduce((total, item) => {
+      const localQuantity = localQuantities[item.product_id] || item.quantity;
+      return total + getShippingFee(item, localQuantity);
+    }, 0);
+  };
+
+  // Calculate grand total (items + shipping)
+  const getGrandTotal = () => {
+    return getSelectedTotalPrice() + getTotalShippingFee();
+  };
+
   // Auto-sync after 3 seconds of inactivity
   const scheduleAutoSync = () => {
     console.log('🛒 [Cart] Scheduling auto-sync in 3 seconds');
@@ -307,12 +327,36 @@ const Cart: React.FC = () => {
   }, []);
 
   const clearCart = async () => {
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      `Are you sure you want to remove all ${cartItems.length} item(s) from your cart? This action cannot be undone.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     try {
       await apiCartService.clearCart();
       setCartItems([]);
       setLocalQuantities({});
+      setSelectedItems({});
+
+      toaster.create({
+        title: 'Cart Cleared',
+        description: 'All items have been removed from your cart',
+        type: 'success',
+        duration: 3000,
+      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to clear cart');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to clear cart';
+      setError(errorMessage);
+      toaster.create({
+        title: 'Error',
+        description: errorMessage,
+        type: 'error',
+        duration: 3000,
+      });
     }
   };
 
@@ -350,13 +394,16 @@ const Cart: React.FC = () => {
       const selectedCartItems = getSelectedItems();
       const orderPromises = selectedCartItems.map(async (item) => {
         const localQuantity = localQuantities[item.product_id] || item.quantity;
+        const shippingFee = getShippingFee(item, localQuantity);
         const orderData: CreateOrderRequest = {
           product_id: item.product_id,
           quantity: localQuantity,
           payment_terms: paymentTerms,
-          shipping_address: shippingAddress.trim()
+          shipping_address: shippingAddress.trim(),
+          shipping_fee: shippingFee,
+          free_shipping: shippingFee === 0
         };
-        
+
         return orderService.createOrder(orderData);
       });
 
@@ -414,13 +461,14 @@ const Cart: React.FC = () => {
   if (loading) {
     return (
       <Box className="cart-container">
-        <Header 
-          user={user} 
-          cartItems={0} 
+        <Header
+          user={user}
+          cartItems={0}
           cartItemsData={[]}
           onSidebarToggle={handleSidebarToggle}
           isSidebarOpen={isSidebarOpen}
           onRemoveFromCart={handleRemoveFromCart}
+          onRemoveAllFromCart={clearCart}
         />
         <Container maxW="container.xl" py={8}>
           <Box textAlign="center" py={12}>
@@ -435,13 +483,14 @@ const Cart: React.FC = () => {
   if (error) {
     return (
       <Box className="cart-container">
-        <Header 
-          user={user} 
-          cartItems={0} 
+        <Header
+          user={user}
+          cartItems={0}
           cartItemsData={[]}
           onSidebarToggle={handleSidebarToggle}
           isSidebarOpen={isSidebarOpen}
           onRemoveFromCart={handleRemoveFromCart}
+          onRemoveAllFromCart={clearCart}
         />
         <Container maxW="container.xl" py={8}>
           <Box textAlign="center" py={12}>
@@ -458,13 +507,14 @@ const Cart: React.FC = () => {
 
   return (
     <Box className="cart-container">
-      <Header 
-        user={user} 
-        cartItems={getTotalItems()} 
+      <Header
+        user={user}
+        cartItems={getTotalItems()}
         cartItemsData={cartItems}
         onSidebarToggle={handleSidebarToggle}
         isSidebarOpen={isSidebarOpen}
         onRemoveFromCart={handleRemoveFromCart}
+        onRemoveAllFromCart={clearCart}
       />
       
       <Container maxW="container.xl" py={8}>
@@ -501,7 +551,7 @@ const Cart: React.FC = () => {
                 <VStack gap={4}>
                   {/* Select All Checkbox */}
                   <Box w="full" p={4} bg="gray.50" borderRadius="lg">
-                    <Flex align="center" gap={3}>
+                    <Flex align="center" justify="space-between">
                       <HStack gap={2}>
                         <Box position="relative">
                           <input
@@ -525,6 +575,14 @@ const Cart: React.FC = () => {
                           Select All Items ({cartItems.length})
                         </Text>
                       </HStack>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        colorScheme="red"
+                        onClick={clearCart}
+                      >
+                        🗑️ Clear All
+                      </Button>
                     </Flex>
                   </Box>
                   {cartItems.map(item => (
@@ -639,17 +697,26 @@ const Cart: React.FC = () => {
                       <Text className="cart-summary-value" fontSize="xs" color="gray.500">₱{getTotalPrice().toFixed(2)}</Text>
                     </Flex>
                     <Flex justify="space-between" width="100%">
-                      <Text className="cart-summary-label">Delivery</Text>
-                      <Text className="cart-summary-value">Free</Text>
+                      <Text className="cart-summary-label">Shipping Fee</Text>
+                      <Text className="cart-summary-value" color={getTotalShippingFee() > 0 ? "orange.600" : "green.600"} fontWeight="semibold">
+                        {getTotalShippingFee() > 0 ? `₱${getTotalShippingFee().toFixed(2)}` : 'Free'}
+                      </Text>
                     </Flex>
+                    {getTotalShippingFee() > 0 && (
+                      <Box bg="orange.50" p={2} borderRadius="md" width="100%">
+                        <Text fontSize="xs" color="orange.700">
+                          💡 Order above minimum quantity to get free shipping!
+                        </Text>
+                      </Box>
+                    )}
                   </VStack>
                   <Box borderTop="1px solid #e2e8f0" width="100%" />
                   <Flex justify="space-between" width="100%">
                     <Text className="cart-total-label" fontWeight="bold" fontSize="lg">
-                      Total
+                      Grand Total
                     </Text>
-                    <Text className="cart-total-value" fontWeight="bold" fontSize="lg">
-                      ₱{getSelectedTotalPrice().toFixed(2)}
+                    <Text className="cart-total-value" fontWeight="bold" fontSize="lg" color="blue.600">
+                      ₱{getGrandTotal().toFixed(2)}
                     </Text>
                   </Flex>
                   <VStack gap={3} width="100%">
@@ -672,11 +739,12 @@ const Cart: React.FC = () => {
                     <Button
                       className="cart-clear-button"
                       width="100%"
-                      variant="ghost"
+                      variant="outline"
+                      colorScheme="red"
                       size="sm"
                       onClick={clearCart}
                     >
-                      Clear Cart
+                      🗑️ Clear All Items
                     </Button>
                   </VStack>
                 </VStack>
@@ -738,22 +806,62 @@ const Cart: React.FC = () => {
               <Box borderBottom="1px solid #e2e8f0" pb={4}>
                 <Heading size="md" mb={3} style={{ color: '#2d3748 !important' }}>Order Summary</Heading>
                 <VStack gap={2} align="stretch">
-                  {getSelectedItems().map(item => (
-                    <Flex key={item.id} justify="space-between" align="center">
-                      <HStack>
-                        <Text fontWeight="medium" style={{ color: '#2d3748 !important' }}>{item.product_name}</Text>
-                        <Text style={{ color: '#718096 !important' }}>
-                          x{localQuantities[item.product_id] || item.quantity}
-                        </Text>
-                      </HStack>
-                      <Text fontWeight="medium" style={{ color: '#2d3748 !important' }}>
-                        ₱{(item.product_price * (localQuantities[item.product_id] || item.quantity)).toFixed(2)}
+                  {getSelectedItems().map(item => {
+                    const localQuantity = localQuantities[item.product_id] || item.quantity;
+                    const itemTotal = item.product_price * localQuantity;
+                    const itemShippingFee = getShippingFee(item, localQuantity);
+                    const minimumOrder = item.product_minimum_order || 1;
+
+                    return (
+                      <Box key={item.id} borderBottom="1px solid #f7fafc" pb={2}>
+                        <Flex justify="space-between" align="center">
+                          <VStack align="start" gap={0}>
+                            <Text fontWeight="medium" style={{ color: '#2d3748 !important' }}>{item.product_name}</Text>
+                            <HStack gap={2}>
+                              <Text fontSize="xs" style={{ color: '#718096 !important' }}>
+                                Qty: {localQuantity} {item.product_unit || 'pcs'}
+                              </Text>
+                              {localQuantity <= minimumOrder && (
+                                <Text fontSize="xs" style={{ color: '#ed8936 !important' }}>
+                                  (≤ min: {minimumOrder})
+                                </Text>
+                              )}
+                            </HStack>
+                          </VStack>
+                          <VStack align="end" gap={0}>
+                            <Text fontWeight="medium" style={{ color: '#2d3748 !important' }}>
+                              ₱{itemTotal.toFixed(2)}
+                            </Text>
+                            {itemShippingFee > 0 && (
+                              <Text fontSize="xs" style={{ color: '#ed8936 !important' }}>
+                                +₱{itemShippingFee} shipping
+                              </Text>
+                            )}
+                          </VStack>
+                        </Flex>
+                      </Box>
+                    );
+                  })}
+                  <Flex justify="space-between" align="center" pt={2}>
+                    <Text fontSize="sm" style={{ color: '#718096 !important' }}>Subtotal</Text>
+                    <Text fontSize="sm" style={{ color: '#718096 !important' }}>₱{getSelectedTotalPrice().toFixed(2)}</Text>
+                  </Flex>
+                  <Flex justify="space-between" align="center">
+                    <Text fontSize="sm" style={{ color: '#718096 !important' }}>Shipping Fee</Text>
+                    <Text fontSize="sm" style={{ color: getTotalShippingFee() > 0 ? '#ed8936 !important' : '#48bb78 !important' }} fontWeight="semibold">
+                      {getTotalShippingFee() > 0 ? `₱${getTotalShippingFee().toFixed(2)}` : 'Free'}
+                    </Text>
+                  </Flex>
+                  {getTotalShippingFee() > 0 && (
+                    <Box bg="#fef5e7" p={2} borderRadius="md">
+                      <Text fontSize="xs" style={{ color: '#c05621 !important' }}>
+                        💡 Tip: Order above minimum quantity to get free shipping!
                       </Text>
-                    </Flex>
-                  ))}
-                  <Flex justify="space-between" align="center" pt={2} borderTop="1px solid #e2e8f0">
-                    <Text fontSize="lg" fontWeight="bold" style={{ color: '#2d3748 !important' }}>Total</Text>
-                    <Text fontSize="lg" fontWeight="bold" style={{ color: '#2d3748 !important' }}>₱{getSelectedTotalPrice().toFixed(2)}</Text>
+                    </Box>
+                  )}
+                  <Flex justify="space-between" align="center" pt={2} borderTop="2px solid #e2e8f0">
+                    <Text fontSize="lg" fontWeight="bold" style={{ color: '#2d3748 !important' }}>Grand Total</Text>
+                    <Text fontSize="lg" fontWeight="bold" style={{ color: '#3182ce !important' }}>₱{getGrandTotal().toFixed(2)}</Text>
                   </Flex>
                 </VStack>
               </Box>
@@ -793,36 +901,14 @@ const Cart: React.FC = () => {
 
               {/* Shipping Address */}
               <Box>
-                <Text fontSize="sm" fontWeight="semibold" mb={2} style={{ color: '#4a5568 !important' }}>
-                  Shipping Address {userProfile?.address && <Text as="span" style={{ color: '#718096 !important' }}>(Default from profile)</Text>}
+                <Text fontSize="lg" fontWeight="bold" mb={3} style={{ color: '#2d3748 !important' }}>
+                  Shipping Address
                 </Text>
-                <Textarea
-                  value={shippingAddress}
-                  onChange={(e) => setShippingAddress(e.target.value)}
-                  placeholder="Enter your complete shipping address"
-                  rows={3}
-                  style={{
-                    backgroundColor: '#ffffff !important',
-                    color: '#2d3748 !important',
-                    border: '1px solid #e2e8f0 !important',
-                    borderRadius: '0.375rem !important'
-                  }}
+                <PhilippineAddressForm
+                  onAddressChange={(address) => setShippingAddress(address)}
+                  initialAddress={userProfile?.address || shippingAddress}
+                  darkMode={true}
                 />
-                {userProfile?.address && !shippingAddress && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    mt={2}
-                    onClick={() => setShippingAddress(userProfile.address)}
-                    style={{
-                      backgroundColor: '#ffffff !important',
-                      color: '#3182ce !important',
-                      border: '1px solid #3182ce !important'
-                    }}
-                  >
-                    Use Profile Address
-                  </Button>
-                )}
               </Box>
 
               {/* Action Buttons */}

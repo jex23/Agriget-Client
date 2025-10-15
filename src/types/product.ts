@@ -6,6 +6,7 @@ export interface Product {
   unit: string;
   stock_quantity: number;
   price: number;
+  minimum_order?: number;
   image_url?: string;
   is_active: boolean;
   created_at: string;
