@@ -278,8 +278,21 @@ const Orders: React.FC = () => {
     }
   };
 
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high':
+        return 'red';
+      case 'medium':
+        return 'yellow';
+      case 'low':
+        return 'gray';
+      default:
+        return 'gray';
+    }
+  };
+
   const formatStatus = (status: string) => {
-    return status.split('_').map(word => 
+    return status.split('_').map(word =>
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
   };
@@ -499,6 +512,12 @@ const Orders: React.FC = () => {
                           <Text fontSize="sm" color="gray.600">Payment:</Text>
                           <Badge colorScheme={getPaymentStatusColor(order.payment_status)} size="sm">
                             {formatStatus(order.payment_status)}
+                          </Badge>
+                        </Flex>
+                        <Flex justify="space-between" align="center">
+                          <Text fontSize="sm" color="gray.600">Priority:</Text>
+                          <Badge colorScheme={getPriorityColor(order.priority)} size="sm">
+                            {formatStatus(order.priority)}
                           </Badge>
                         </Flex>
                         <Flex justify="space-between" align="center">

@@ -24,14 +24,13 @@ import { createListCollection } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import type { User } from '../types/auth.js';
 import type { CartItem } from '../types/cart';
-import type { CreateOrderRequest, PaymentTerms } from '../types/order';
+import type { CreateOrderRequest, PaymentTerms, OrderPriority } from '../types/order';
 import { API_ENDPOINTS } from '../constants/api';
 import authService from '../services/authService.js';
 import { apiCartService } from '../services/apiCartService';
 import { orderService } from '../services/orderService';
 import { ROUTES } from '../constants/routes.js';
 import Header from '../components/Header.js';
-import Footer from '../components/Footer.js';
 import PhilippineAddressForm from '../components/PhilippineAddressForm';
 import './Cart.css';
 
@@ -48,6 +47,7 @@ const Cart: React.FC = () => {
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [shippingAddress, setShippingAddress] = useState('');
   const [paymentTerms, setPaymentTerms] = useState<PaymentTerms>('cash_on_delivery');
+  const [priority, setPriority] = useState<OrderPriority>('medium');
   const [userProfile, setUserProfile] = useState<any>(null);
   const navigate = useNavigate();
   
@@ -59,7 +59,13 @@ const Cart: React.FC = () => {
     { label: 'Cash on Delivery', value: 'cash_on_delivery' },
     { label: 'Over the Counter', value: 'over_the_counter' }
   ];
-  
+
+  const priorityOptions = [
+    { label: 'High Priority', value: 'high' },
+    { label: 'Medium Priority', value: 'medium' },
+    { label: 'Low Priority', value: 'low' }
+  ];
+
   // Auto-sync timer ref
   const autoSyncTimeoutRef = useRef<number | null>(null);
 
@@ -401,7 +407,8 @@ const Cart: React.FC = () => {
           payment_terms: paymentTerms,
           shipping_address: shippingAddress.trim(),
           shipping_fee: shippingFee,
-          free_shipping: shippingFee === 0
+          free_shipping: shippingFee === 0,
+          priority: priority
         };
 
         return orderService.createOrder(orderData);
@@ -475,7 +482,6 @@ const Cart: React.FC = () => {
             <Text>Loading cart...</Text>
           </Box>
         </Container>
-        <Footer />
       </Box>
     );
   }
@@ -500,7 +506,6 @@ const Cart: React.FC = () => {
             </Button>
           </Box>
         </Container>
-        <Footer />
       </Box>
     );
   }
@@ -711,6 +716,32 @@ const Cart: React.FC = () => {
                     )}
                   </VStack>
                   <Box borderTop="1px solid #e2e8f0" width="100%" />
+
+                  {/* Order Priority Selection */}
+                  <Box width="100%">
+                    <Text fontSize="sm" fontWeight="semibold" mb={2} color="gray.700">
+                      Order Priority
+                    </Text>
+                    <SelectRoot
+                      collection={createListCollection({ items: priorityOptions })}
+                      value={[priority]}
+                      onValueChange={(details) => setPriority(details.value?.[0] as OrderPriority || 'medium')}
+                      size="sm"
+                    >
+                      <SelectTrigger>
+                        <SelectValueText placeholder="Select priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {priorityOptions.map((option) => (
+                          <SelectItem key={option.value} item={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </SelectRoot>
+                  </Box>
+
+                  <Box borderTop="1px solid #e2e8f0" width="100%" />
                   <Flex justify="space-between" width="100%">
                     <Text className="cart-total-label" fontWeight="bold" fontSize="lg">
                       Grand Total
@@ -869,9 +900,9 @@ const Cart: React.FC = () => {
               {/* Payment Terms */}
               <Box>
                 <Text fontSize="sm" fontWeight="semibold" mb={2} style={{ color: '#4a5568 !important' }}>Payment Terms</Text>
-                <SelectRoot 
+                <SelectRoot
                   collection={createListCollection({ items: paymentOptions })}
-                  value={[paymentTerms]} 
+                  value={[paymentTerms]}
                   onValueChange={(details) => setPaymentTerms(details.value?.[0] as PaymentTerms || 'cash_on_delivery')}
                 >
                   <SelectTrigger style={{
@@ -888,6 +919,39 @@ const Cart: React.FC = () => {
                     borderRadius: '0.375rem !important'
                   }}>
                     {paymentOptions.map((option) => (
+                      <SelectItem key={option.value} item={option.value} style={{
+                        backgroundColor: '#ffffff !important',
+                        color: '#2d3748 !important'
+                      }}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </SelectRoot>
+              </Box>
+
+              {/* Priority */}
+              <Box>
+                <Text fontSize="sm" fontWeight="semibold" mb={2} style={{ color: '#4a5568 !important' }}>Order Priority</Text>
+                <SelectRoot
+                  collection={createListCollection({ items: priorityOptions })}
+                  value={[priority]}
+                  onValueChange={(details) => setPriority(details.value?.[0] as OrderPriority || 'medium')}
+                >
+                  <SelectTrigger style={{
+                    backgroundColor: '#ffffff !important',
+                    color: '#2d3748 !important',
+                    border: '1px solid #e2e8f0 !important',
+                    borderRadius: '0.375rem !important'
+                  }}>
+                    <SelectValueText placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent style={{
+                    backgroundColor: '#ffffff !important',
+                    border: '1px solid #e2e8f0 !important',
+                    borderRadius: '0.375rem !important'
+                  }}>
+                    {priorityOptions.map((option) => (
                       <SelectItem key={option.value} item={option.value} style={{
                         backgroundColor: '#ffffff !important',
                         color: '#2d3748 !important'
@@ -944,8 +1008,6 @@ const Cart: React.FC = () => {
           </Box>
         </Box>
       )}
-
-      <Footer />
     </Box>
   );
 };

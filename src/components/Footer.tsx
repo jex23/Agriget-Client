@@ -50,7 +50,7 @@ const Footer: React.FC = () => {
               </HStack>
               <HStack>
                 <Text fontSize="sm">📧</Text>
-                <Text className="footer-contact-item" fontSize="sm">info@joeysaggregates.com</Text>
+                <Text className="footer-contact-item" fontSize="sm">joeysaggregatestrading@gmail.com</Text>
               </HStack>
               <HStack>
                 <Text fontSize="sm">📍</Text>

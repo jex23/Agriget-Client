@@ -24,7 +24,7 @@ import {
 import { createListCollection } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import type { User } from '../types/auth.js';
-import type { Order, OrderStatus, PaymentStatus } from '../types/order';
+import type { Order, OrderStatus, PaymentStatus, OrderPriority } from '../types/order';
 import authService from '../services/authService.js';
 import { orderService } from '../services/orderService';
 import { ROUTES } from '../constants/routes.js';
@@ -77,6 +77,14 @@ const AdminOrders: React.FC = () => {
       { label: 'Pending', value: 'pending' },
       { label: 'Paid', value: 'paid' },
       { label: 'Failed', value: 'failed' },
+    ],
+  });
+
+  const priorityOptions = createListCollection({
+    items: [
+      { label: 'High Priority', value: 'high' },
+      { label: 'Medium Priority', value: 'medium' },
+      { label: 'Low Priority', value: 'low' },
     ],
   });
 
@@ -245,10 +253,10 @@ const AdminOrders: React.FC = () => {
     try {
       setUpdatingOrderId(orderId);
       await orderService.updateOrder(orderId, { payment_status: newStatus });
-      
-      setOrders(prevOrders => 
-        prevOrders.map(order => 
-          order.id === orderId 
+
+      setOrders(prevOrders =>
+        prevOrders.map(order =>
+          order.id === orderId
             ? { ...order, payment_status: newStatus }
             : order
         )
@@ -265,6 +273,38 @@ const AdminOrders: React.FC = () => {
       toaster.create({
         title: 'Error',
         description: 'Failed to update payment status. Please try again.',
+        type: 'error',
+        duration: 3000,
+      });
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  };
+
+  const handlePriorityUpdate = async (orderId: number, newPriority: OrderPriority) => {
+    try {
+      setUpdatingOrderId(orderId);
+      await orderService.updateOrder(orderId, { priority: newPriority });
+
+      setOrders(prevOrders =>
+        prevOrders.map(order =>
+          order.id === orderId
+            ? { ...order, priority: newPriority }
+            : order
+        )
+      );
+
+      toaster.create({
+        title: 'Priority Updated',
+        description: `Order priority changed to ${formatStatus(newPriority)}`,
+        type: 'success',
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error('Error updating priority:', error);
+      toaster.create({
+        title: 'Error',
+        description: 'Failed to update priority. Please try again.',
         type: 'error',
         duration: 3000,
       });
@@ -298,6 +338,19 @@ const AdminOrders: React.FC = () => {
         return 'green';
       case 'failed':
         return 'red';
+      default:
+        return 'gray';
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high':
+        return 'red';
+      case 'medium':
+        return 'yellow';
+      case 'low':
+        return 'gray';
       default:
         return 'gray';
     }
@@ -668,6 +721,12 @@ const AdminOrders: React.FC = () => {
                                 {formatStatus(order.payment_terms)}
                               </Text>
                             </Flex>
+                            <Flex justify="space-between" align="center" wrap="wrap">
+                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">Priority:</Text>
+                              <Badge colorScheme={getPriorityColor(order.priority)} size="sm" fontSize={{ base: "2xs", md: "xs" }}>
+                                {formatStatus(order.priority)}
+                              </Badge>
+                            </Flex>
                             {order.shipping_address && (
                               <Flex justify="space-between" align="start" wrap="wrap">
                                 <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={{ base: 1, md: 0 }}>Shipping:</Text>
@@ -758,6 +817,35 @@ const AdminOrders: React.FC = () => {
                                   {paymentStatusOptions.items.map((option) => (
                                     <SelectItem key={option.value} item={option.value}>
                                       <Badge colorScheme={getPaymentStatusColor(option.value)} size={{ base: "sm", md: "sm" }}>
+                                        {option.label}
+                                      </Badge>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </SelectRoot>
+                            </Box>
+
+                            {/* Priority */}
+                            <Box>
+                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={{ base: 1, md: 2 }}>Priority:</Text>
+                              <SelectRoot
+                                collection={priorityOptions}
+                                value={[order.priority]}
+                                onValueChange={(details) => {
+                                  if (details.value && details.value.length > 0) {
+                                    handlePriorityUpdate(order.id, details.value[0] as OrderPriority);
+                                  }
+                                }}
+                                size={{ base: "sm", md: "sm" }}
+                                disabled={updatingOrderId === order.id}
+                              >
+                                <SelectTrigger h={{ base: "36px", md: "40px" }}>
+                                  <SelectValueText />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {priorityOptions.items.map((option) => (
+                                    <SelectItem key={option.value} item={option.value}>
+                                      <Badge colorScheme={getPriorityColor(option.value)} size={{ base: "sm", md: "sm" }}>
                                         {option.label}
                                       </Badge>
                                     </SelectItem>
