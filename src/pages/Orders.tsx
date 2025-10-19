@@ -35,7 +35,6 @@ import { apiCartService } from '../services/apiCartService';
 import { ROUTES } from '../constants/routes.js';
 import { API_ENDPOINTS } from '../constants/api';
 import Header from '../components/Header.js';
-import Footer from '../components/Footer.js';
 
 const Orders: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -312,7 +311,6 @@ const Orders: React.FC = () => {
             </VStack>
           </Center>
         </Container>
-        <Footer />
       </Box>
     );
   }
@@ -630,8 +628,6 @@ const Orders: React.FC = () => {
           )}
         </VStack>
       </Container>
-      
-      <Footer />
     </Box>
   );
 };
