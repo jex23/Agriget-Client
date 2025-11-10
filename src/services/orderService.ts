@@ -37,10 +37,14 @@ class OrderService {
   }
 
   async createOrder(orderData: CreateOrderRequest): Promise<OrderResponse> {
-    return this.makeRequest<OrderResponse>(API_ENDPOINTS.orders, {
+    console.log('📤 [OrderService] Creating order:', orderData);
+    const response = await this.makeRequest<OrderResponse>(API_ENDPOINTS.orders, {
       method: 'POST',
       body: JSON.stringify(orderData),
     });
+    console.log('✅ [OrderService] Order created successfully:', response);
+    console.log('🔍 [OrderService] Stock should be decreased on backend for product_id:', orderData.product_id);
+    return response;
   }
 
   async getUserOrders(): Promise<OrderResponse[]> {

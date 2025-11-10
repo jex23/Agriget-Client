@@ -25,6 +25,7 @@ import authService from '../services/authService.js';
 import Header from '../components/Header.js';
 import Sidebar from '../components/Sidebar.js';
 import Product from '../components/Product.js';
+import HollowBlocksProduct from '../components/HollowBlocksProduct.js';
 import { productService } from '../services/productService';
 import { cacheService } from '../services/cacheService';
 import { apiCartService } from '../services/apiCartService';
@@ -58,17 +59,12 @@ const Home: React.FC = () => {
 
 
   useEffect(() => {
-    console.log('🏠 [Home] Initial useEffect called');
     const currentUser = authService.getCurrentUser();
-    console.log('🏠 [Home] Current user from authService:', currentUser ? currentUser.name : 'No user');
     setUser(currentUser);
-    
+
     // Load cart from API if user is logged in
     if (currentUser) {
-      console.log('🏠 [Home] User found, calling fetchCart with user parameter');
       fetchCart(currentUser);
-    } else {
-      console.log('🏠 [Home] No user found, skipping fetchCart');
     }
   }, []);
 
@@ -76,46 +72,53 @@ const Home: React.FC = () => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        console.log('🏠 [Home] fetchProducts started');
 
         // Try to get products from cache first
         const cachedProducts = cacheService.getCachedProducts();
 
         if (cachedProducts && cachedProducts.length > 0) {
-          console.log('🏠 [Home] Loading products from cache');
-          console.log('🏠 [Home] Cached products count:', cachedProducts.length);
-          console.log('🏠 [Home] First 3 cached products:', cachedProducts.slice(0, 3));
+          console.log('💾 Loading products from CACHE (not API)');
+          console.log('📦 Cached Products Count:', cachedProducts.length);
+          console.log('📊 Cached Product Details:');
+          cachedProducts.forEach((product, index) => {
+            console.log(`Product ${index + 1}:`, {
+              id: product.id,
+              name: product.name,
+              category: product.category,
+              unit: product.unit,
+              price: product.price,
+              stock_quantity: product.stock_quantity,
+              minimum_order: product.minimum_order,
+              is_active: product.is_active,
+              image_url: product.image_url
+            });
+          });
+
           setProducts(cachedProducts);
 
           // Extract unique categories from cached products
           const uniqueCategories = ['All', ...new Set(cachedProducts.map(p => p.category).filter((cat): cat is string => Boolean(cat)))];
-          console.log('🏠 [Home] Categories from cache:', uniqueCategories);
           setCategories(uniqueCategories);
           setLoading(false);
           return;
         }
 
         // If no cache, fetch from API
-        console.log('🏠 [Home] No cache found, fetching products from API');
-        console.log('🏠 [Home] API call parameters:', { is_active: true });
-
         const fetchedProducts = await productService.getProducts({ is_active: true });
 
-        console.log('🏠 [Home] ✅ Products fetched successfully from API');
-        console.log('🏠 [Home] Total products received:', fetchedProducts.length);
-        console.log('🏠 [Home] Full products data:', fetchedProducts);
-        console.log('🏠 [Home] First product details:', fetchedProducts[0]);
-
-        // Log each product's key information
+        console.log('📦 API Response - Products:', fetchedProducts);
+        console.log('📊 Product Details:');
         fetchedProducts.forEach((product, index) => {
-          console.log(`🏠 [Home] Product ${index + 1}:`, {
+          console.log(`Product ${index + 1}:`, {
             id: product.id,
             name: product.name,
             category: product.category,
+            unit: product.unit,
             price: product.price,
-            stock: product.stock_quantity,
+            stock_quantity: product.stock_quantity,
             minimum_order: product.minimum_order,
-            is_active: product.is_active
+            is_active: product.is_active,
+            image_url: product.image_url
           });
         });
 
@@ -123,11 +126,9 @@ const Home: React.FC = () => {
 
         // Cache the fetched products (cache for 5 minutes)
         cacheService.cacheProducts(fetchedProducts);
-        console.log('🏠 [Home] Products cached successfully');
 
         // Extract unique categories
         const uniqueCategories = ['All', ...new Set(fetchedProducts.map(p => p.category).filter((cat): cat is string => Boolean(cat)))];
-        console.log('🏠 [Home] Unique categories extracted:', uniqueCategories);
         setCategories(uniqueCategories);
       } catch (err) {
         console.error('🏠 [Home] ❌ Error fetching products:', err);
@@ -140,18 +141,13 @@ const Home: React.FC = () => {
         // Try to load from cache even if API fails
         const cachedProducts = cacheService.getCachedProducts();
         if (cachedProducts) {
-          console.log('🏠 [Home] API failed, loading products from cache as fallback');
-          console.log('🏠 [Home] Fallback cache products count:', cachedProducts.length);
           setProducts(cachedProducts);
           const uniqueCategories = ['All', ...new Set(cachedProducts.map(p => p.category).filter((cat): cat is string => Boolean(cat)))];
           setCategories(uniqueCategories);
           setError(null); // Clear error since we have cached data
-        } else {
-          console.error('🏠 [Home] No cached products available as fallback');
         }
       } finally {
         setLoading(false);
-        console.log('🏠 [Home] fetchProducts completed');
       }
     };
 
@@ -160,24 +156,14 @@ const Home: React.FC = () => {
 
   const fetchCart = async (userToCheck?: User | null) => {
     const userForCheck = userToCheck || user;
-    console.log('🏠 [Home] fetchCart called');
-    console.log('🏠 [Home] User (parameter):', userToCheck ? userToCheck.name : 'No user param');
-    console.log('🏠 [Home] User (state):', user ? user.name : 'No user state');
-    console.log('🏠 [Home] User (final check):', userForCheck ? userForCheck.name : 'No user');
-    
+
     if (!userForCheck) {
-      console.log('🏠 [Home] No user, skipping cart fetch');
       return;
     }
-    
+
     try {
-      console.log('🏠 [Home] Calling apiCartService.getCart()');
       const cartData = await apiCartService.getCart();
-      console.log('🏠 [Home] Cart data received:', cartData);
-      console.log('🏠 [Home] Number of cart items:', cartData.length);
-      
       setCartItems(cartData);
-      console.log('🏠 [Home] Cart items state updated');
     } catch (error) {
       console.error('🏠 [Home] Failed to fetch cart:', error);
       if (error instanceof Error) {
@@ -214,15 +200,11 @@ const Home: React.FC = () => {
   };
 
   const getTotalItems = () => {
-    const total = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-    console.log('🏠 [Home] getTotalItems:', total, 'from', cartItems.length, 'cart items');
-    return total;
+    return cartItems.reduce((sum, item) => sum + item.quantity, 0);
   };
 
   const getTotalPrice = () => {
-    const total = cartItems.reduce((total, item) => total + (item.product_price * item.quantity), 0);
-    console.log('🏠 [Home] getTotalPrice:', total);
-    return total;
+    return cartItems.reduce((total, item) => total + (item.product_price * item.quantity), 0);
   };
 
 
@@ -231,16 +213,34 @@ const Home: React.FC = () => {
   };
 
 
-  const filteredProducts = selectedCategory === 'All' 
-    ? products.filter(product => 
+  const filteredProducts = selectedCategory === 'All'
+    ? products.filter(product =>
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.category?.toLowerCase().includes(searchQuery.toLowerCase())
       )
-    : products.filter(product => 
+    : products.filter(product =>
         product.category === selectedCategory &&
         (product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
          product.category?.toLowerCase().includes(searchQuery.toLowerCase()))
       );
+
+  // Group products: separate hollow blocks from others
+  const groupedProducts = () => {
+    const hollowBlocks: ProductType[] = [];
+    const otherProducts: ProductType[] = [];
+
+    filteredProducts.forEach(product => {
+      if (product.category?.toLowerCase() === 'hollow blocks') {
+        hollowBlocks.push(product);
+      } else {
+        otherProducts.push(product);
+      }
+    });
+
+    return { hollowBlocks, otherProducts };
+  };
+
+  const { hollowBlocks, otherProducts } = groupedProducts();
 
   return (
     <Box className="home-container" bg="gray.50" minH="100vh" color="gray.900">
@@ -569,25 +569,50 @@ const Home: React.FC = () => {
                 </VStack>
               </Box>
             ) : (
-              <SimpleGrid 
-                columns={{ 
-                  base: viewMode === 'grid' ? 1 : 1, 
-                  sm: viewMode === 'grid' ? 2 : 1, 
-                  md: viewMode === 'grid' ? 2 : 1, 
+              <SimpleGrid
+                columns={{
+                  base: viewMode === 'grid' ? 1 : 1,
+                  sm: viewMode === 'grid' ? 2 : 1,
+                  md: viewMode === 'grid' ? 2 : 1,
                   lg: viewMode === 'grid' ? 3 : 1,
                   xl: viewMode === 'grid' ? 4 : 1
-                }} 
+                }}
                 gap={{ base: 4, sm: 5, md: 6 }}
                 justifyItems="center"
                 w="full"
                 px={{ base: 2, sm: 4, md: 0 }}
               >
-                {filteredProducts.map(product => (
+                {/* Render Hollow Blocks as one combined product */}
+                {hollowBlocks.length > 0 && (
+                  <Box
+                    key="hollow-blocks-combined"
+                    w="full"
+                    maxW={{
+                      base: "100%",
+                      sm: viewMode === 'list' ? "100%" : "280px",
+                      md: viewMode === 'list' ? "100%" : "300px",
+                      lg: viewMode === 'list' ? "100%" : "280px",
+                      xl: viewMode === 'list' ? "100%" : "300px"
+                    }}
+                    mx="auto"
+                    display="flex"
+                    justifyContent="center"
+                  >
+                    <HollowBlocksProduct
+                      products={hollowBlocks}
+                      user={user}
+                      onCartUpdate={fetchCart}
+                    />
+                  </Box>
+                )}
+
+                {/* Render other products normally */}
+                {otherProducts.map(product => (
                   <Box
                     key={product.id}
                     w="full"
-                    maxW={{ 
-                      base: "100%", 
+                    maxW={{
+                      base: "100%",
                       sm: viewMode === 'list' ? "100%" : "280px",
                       md: viewMode === 'list' ? "100%" : "300px",
                       lg: viewMode === 'list' ? "100%" : "280px",

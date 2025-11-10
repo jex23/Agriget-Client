@@ -29,6 +29,7 @@ import { API_ENDPOINTS } from '../constants/api';
 import authService from '../services/authService.js';
 import { apiCartService } from '../services/apiCartService';
 import { orderService } from '../services/orderService';
+import { cacheService } from '../services/cacheService';
 import { ROUTES } from '../constants/routes.js';
 import Header from '../components/Header.js';
 import PhilippineAddressForm from '../components/PhilippineAddressForm';
@@ -395,9 +396,17 @@ const Cart: React.FC = () => {
 
     try {
       setIsPlacingOrder(true);
-      
+
       // Create orders for each selected cart item
       const selectedCartItems = getSelectedItems();
+
+      // Log items being ordered for stock tracking
+      console.log('📋 [Cart] Creating orders for items:');
+      selectedCartItems.forEach(item => {
+        const localQuantity = localQuantities[item.product_id] || item.quantity;
+        console.log(`  - Product ID: ${item.product_id}, Name: ${item.product_name}, Quantity: ${localQuantity}`);
+      });
+
       const orderPromises = selectedCartItems.map(async (item) => {
         const localQuantity = localQuantities[item.product_id] || item.quantity;
         const shippingFee = getShippingFee(item, localQuantity);
@@ -414,15 +423,23 @@ const Cart: React.FC = () => {
         return orderService.createOrder(orderData);
       });
 
-      await Promise.all(orderPromises);
-      
+      const orderResults = await Promise.all(orderPromises);
+
+      console.log('✅ [Cart] Orders created successfully:', orderResults.length);
+      console.log('📦 [Cart] Order details:', orderResults);
+
+      // Clear products cache so Home page will show updated stock quantities
+      console.log('🔄 [Cart] Clearing products cache to refresh stock quantities');
+      console.log('💡 [Cart] When you navigate to Home, products will be refetched with updated stock');
+      cacheService.clearProductsCache();
+
       // Remove only the selected items from cart after successful order creation
       const selectedProductIds = selectedCartItems.map(item => item.product_id);
-      
+
       for (const productId of selectedProductIds) {
         await apiCartService.removeFromCart(productId);
       }
-      
+
       // Update local state to remove selected items
       setCartItems(prev => prev.filter(item => !selectedProductIds.includes(item.product_id)));
       setLocalQuantities(prev => {
@@ -436,10 +453,10 @@ const Cart: React.FC = () => {
         return updated;
       });
       setIsCheckoutModalOpen(false);
-      
+
       toaster.create({
         title: 'Order Placed Successfully!',
-        description: `${selectedCartItems.length} order(s) have been placed. You will be contacted for delivery details.`,
+        description: `${selectedCartItems.length} order(s) have been placed. Stock quantities have been updated. You will be contacted for delivery details.`,
         type: 'success',
         duration: 5000,
       });
@@ -585,6 +602,13 @@ const Cart: React.FC = () => {
                         variant="ghost"
                         colorScheme="red"
                         onClick={clearCart}
+                        style={{
+                          backgroundColor: 'transparent',
+                          color: '#e53e3e'
+                        }}
+                        _hover={{
+                          backgroundColor: '#fed7d7'
+                        }}
                       >
                         🗑️ Clear All
                       </Button>
@@ -728,12 +752,35 @@ const Cart: React.FC = () => {
                       onValueChange={(details) => setPriority(details.value?.[0] as OrderPriority || 'medium')}
                       size="sm"
                     >
-                      <SelectTrigger>
+                      <SelectTrigger style={{
+                        backgroundColor: '#ffffff',
+                        color: '#2d3748',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '0.375rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingRight: '12px'
+                      }}>
                         <SelectValueText placeholder="Select priority" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent style={{
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '0.375rem'
+                      }}>
                         {priorityOptions.map((option) => (
-                          <SelectItem key={option.value} item={option.value}>
+                          <SelectItem
+                            key={option.value}
+                            item={option.value}
+                            style={{
+                              backgroundColor: '#ffffff',
+                              color: '#2d3748'
+                            }}
+                            _hover={{
+                              backgroundColor: '#f7fafc'
+                            }}
+                          >
                             {option.label}
                           </SelectItem>
                         ))}
@@ -774,6 +821,14 @@ const Cart: React.FC = () => {
                       colorScheme="red"
                       size="sm"
                       onClick={clearCart}
+                      style={{
+                        backgroundColor: '#ffffff',
+                        color: '#e53e3e',
+                        border: '1px solid #e53e3e'
+                      }}
+                      _hover={{
+                        backgroundColor: '#fed7d7'
+                      }}
                     >
                       🗑️ Clear All Items
                     </Button>

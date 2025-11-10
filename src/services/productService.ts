@@ -66,24 +66,32 @@ class ProductService {
 
   async getProducts(params?: GetProductsParams): Promise<Product[]> {
     let url = API_ENDPOINTS.products;
-    
+
     if (params) {
       const searchParams = new URLSearchParams();
-      
+
       if (params.skip !== undefined) searchParams.append('skip', String(params.skip));
       if (params.limit !== undefined) searchParams.append('limit', String(params.limit));
       if (params.category) searchParams.append('category', params.category);
       if (params.is_active !== undefined) searchParams.append('is_active', String(params.is_active));
-      
+
       const queryString = searchParams.toString();
       if (queryString) {
         url += `?${queryString}`;
       }
     }
-    
-    return this.makeRequest<Product[]>(url, {
+
+    console.log('🌐 API Endpoint:', url);
+    console.log('🔍 Request params:', params);
+
+    const products = await this.makeRequest<Product[]>(url, {
       method: 'GET',
     });
+
+    console.log('✅ API Response - Products received:', products.length);
+    console.log('📦 Raw API Response:', products);
+
+    return products;
   }
 
   async getProduct(id: number): Promise<Product> {

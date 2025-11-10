@@ -10,6 +10,14 @@ import {
   Image,
   VStack
 } from '@chakra-ui/react';
+import {
+  SelectContent,
+  SelectItem,
+  SelectRoot,
+  SelectTrigger,
+  SelectValueText,
+} from '@chakra-ui/react/select';
+import { createListCollection } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { FiHeart, FiShoppingCart, FiPlus, FiMinus } from 'react-icons/fi';
 import type { Product as ProductType } from '../types/product';
@@ -17,31 +25,70 @@ import type { User } from '../types/auth.js';
 import { ROUTES } from '../constants/routes.js';
 import { API_ENDPOINTS } from '../constants/api';
 import { apiCartService } from '../services/apiCartService';
-import { cacheService } from '../services/cacheService';
 import './Product.css';
 
-interface ProductProps {
-  product: ProductType;
+interface HollowBlocksProductProps {
+  products: ProductType[]; // Array of hollow block products with different sizes
   user: User | null;
-  onCartUpdate?: () => void; // Callback to refresh cart data
+  onCartUpdate?: () => void;
 }
 
-const Product: React.FC<ProductProps> = ({
-  product,
+const HollowBlocksProduct: React.FC<HollowBlocksProductProps> = ({
+  products,
   user,
   onCartUpdate
 }) => {
   const navigate = useNavigate();
+  const [selectedSize, setSelectedSize] = useState<string>('');
+  const [selectedProduct, setSelectedProduct] = useState<ProductType | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showQuantityControls, setShowQuantityControls] = useState(false);
-  const minimumOrder = product.minimum_order || 1;
-  const [localQuantity, setLocalQuantity] = useState(minimumOrder); // Local quantity state starting at minimum order
+  const [localQuantity, setLocalQuantity] = useState(1);
   const [showMinimumOrderWarning, setShowMinimumOrderWarning] = useState(false);
 
-  // Update localQuantity when minimum_order changes
+  // Extract size from product unit (e.g., "5\" CHB" -> "5\" CHB" or "4\" CHB" -> "4\" CHB")
+  function extractSizeName(unit: string): string {
+    // The unit already contains the size info like "5" CHB" or "4" CHB"
+    // Just return it as-is
+    return unit;
+  }
+
+  // Sort products by size and create size options
+  const sortedProducts = [...products].sort((a, b) => {
+    // Extract size number from unit (e.g., "5\" CHB" -> 5)
+    const sizeA = parseFloat(a.unit.match(/\d+/)?.[0] || '0');
+    const sizeB = parseFloat(b.unit.match(/\d+/)?.[0] || '0');
+    return sizeA - sizeB;
+  });
+
+  const sizeOptions = createListCollection({
+    items: sortedProducts.map(product => ({
+      label: extractSizeName(product.unit),
+      value: product.id.toString()
+    }))
+  });
+
+  // Initialize with first product
   useEffect(() => {
-    setLocalQuantity(minimumOrder);
-  }, [minimumOrder]);
+    if (sortedProducts.length > 0 && !selectedProduct) {
+      const firstProduct = sortedProducts[0];
+      setSelectedProduct(firstProduct);
+      setSelectedSize(firstProduct.id.toString());
+      setLocalQuantity(firstProduct.minimum_order || 1);
+    }
+  }, [sortedProducts]);
+
+  // Update selected product when size changes
+  const handleSizeChange = (productId: string) => {
+    const product = products.find(p => p.id.toString() === productId);
+    if (product) {
+      setSelectedProduct(product);
+      setSelectedSize(productId);
+      setLocalQuantity(product.minimum_order || 1);
+      setShowQuantityControls(false);
+      setShowMinimumOrderWarning(false);
+    }
+  };
 
   const handleAddToCart = async () => {
     if (!user) {
@@ -49,13 +96,17 @@ const Product: React.FC<ProductProps> = ({
       return;
     }
 
-    // First click: just show quantity controls without API call
+    if (!selectedProduct) return;
+
+    const minimumOrder = selectedProduct.minimum_order || 1;
+
+    // First click: show quantity controls
     if (!showQuantityControls) {
       setShowQuantityControls(true);
       return;
     }
 
-    // Subsequent clicks: Validate minimum order before API call
+    // Validate minimum order
     if (localQuantity < minimumOrder) {
       setShowMinimumOrderWarning(true);
       setTimeout(() => setShowMinimumOrderWarning(false), 3000);
@@ -65,22 +116,16 @@ const Product: React.FC<ProductProps> = ({
     setIsLoading(true);
     try {
       await apiCartService.addToCart({
-        product_id: product.id,
+        product_id: selectedProduct.id,
         quantity: localQuantity
       });
 
-      // Hide quantity controls and reset quantity after successful API call
       setShowQuantityControls(false);
-      setLocalQuantity(minimumOrder); // Reset to minimum order for next time
+      setLocalQuantity(minimumOrder);
       setShowMinimumOrderWarning(false);
-
-      // Trigger cart update callback
       onCartUpdate?.();
     } catch (error) {
-      console.error('🛒 [Product] Failed to add to cart:', error);
-      if (error instanceof Error) {
-        console.error('🛒 [Product] Error message:', error.message);
-      }
+      console.error('Failed to add to cart:', error);
     } finally {
       setIsLoading(false);
     }
@@ -92,9 +137,11 @@ const Product: React.FC<ProductProps> = ({
       return;
     }
 
-    const quantityToAdd = showQuantityControls ? localQuantity : minimumOrder;
+    if (!selectedProduct) return;
 
-    // Validate minimum order
+    const quantityToAdd = showQuantityControls ? localQuantity : (selectedProduct.minimum_order || 1);
+    const minimumOrder = selectedProduct.minimum_order || 1;
+
     if (quantityToAdd < minimumOrder) {
       setShowMinimumOrderWarning(true);
       setTimeout(() => setShowMinimumOrderWarning(false), 3000);
@@ -103,14 +150,11 @@ const Product: React.FC<ProductProps> = ({
 
     setIsLoading(true);
     try {
-      // Add to cart with current local quantity
       await apiCartService.addToCart({
-        product_id: product.id,
+        product_id: selectedProduct.id,
         quantity: quantityToAdd
       });
       onCartUpdate?.();
-
-      // Navigate to cart for immediate checkout
       navigate(ROUTES.CART);
     } catch (error) {
       console.error('Failed to add to cart:', error);
@@ -124,6 +168,7 @@ const Product: React.FC<ProductProps> = ({
   };
 
   const handleQuantityDecrease = () => {
+    const minimumOrder = selectedProduct?.minimum_order || 1;
     if (localQuantity > minimumOrder) {
       setLocalQuantity(prev => prev - 1);
       setShowMinimumOrderWarning(false);
@@ -134,68 +179,26 @@ const Product: React.FC<ProductProps> = ({
     }
   };
 
-  const getBadgeColorScheme = (category?: string) => {
-    if (!category) return 'gray';
-    switch (category.toLowerCase()) {
-      case 'hollow blocks':
-        return 'blue';
-      case 'sand':
-        return 'orange';
-      case 'gravel':
-        return 'green';
-      default:
-        return 'gray';
-    }
-  };
-
-  // Helper function to format unit display for sand and gravel
-  const formatUnitDisplay = (unit: string, quantity?: number) => {
-    const category = product.category?.toLowerCase();
-
-    // Check if unit contains m and ³ or is m3
-    const isCubicMeter = unit.includes('m³') || unit.includes('m3') || unit === 'm³' || unit === 'm3';
-
-    // Check if product is sand or gravel
-    if ((category === 'sand' || category === 'gravel') && isCubicMeter) {
-      // Use singular or plural based on quantity
-      if (quantity === 1) {
-        return 'cubic meter (m³)';
-      }
-      return 'cubic meters (m³)';
-    }
-
-    return unit;
-  };
-
-  // Helper function for "per unit" display
-  const formatPerUnitDisplay = (unit: string) => {
-    const category = product.category?.toLowerCase();
-
-    // Check if unit contains m and ³ or is m3
-    const isCubicMeter = unit.includes('m³') || unit.includes('m3') || unit === 'm³' || unit === 'm3';
-
-    // Check if product is sand or gravel
-    if ((category === 'sand' || category === 'gravel') && isCubicMeter) {
-      return 'per cubic meter (m³)';
-    }
-
-    return `per ${unit}`;
-  };
-
   const handleProductClick = () => {
-    navigate(`/product/${product.id}`);
+    if (selectedProduct) {
+      navigate(`/product/${selectedProduct.id}`);
+    }
   };
+
+  if (!selectedProduct) return null;
+
+  const minimumOrder = selectedProduct.minimum_order || 1;
 
   return (
-    <Box 
+    <Box
       className="product-card"
       bg="white"
       borderRadius={{ base: "12px", md: "16px" }}
       boxShadow="0 2px 8px rgba(0,0,0,0.08)"
       overflow="hidden"
       transition="all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)"
-      _hover={{ 
-        transform: { base: 'translateY(-4px)', md: 'translateY(-8px)' }, 
+      _hover={{
+        transform: { base: 'translateY(-4px)', md: 'translateY(-8px)' },
         boxShadow: '0 12px 32px rgba(0,0,0,0.12)',
         cursor: 'pointer'
       }}
@@ -239,7 +242,7 @@ const Product: React.FC<ProductProps> = ({
         </IconButton>
 
         {/* Stock Badge */}
-        {product.stock_quantity > 0 && product.is_active ? (
+        {selectedProduct.stock_quantity > 0 && selectedProduct.is_active ? (
           <Badge
             position="absolute"
             top={3}
@@ -274,53 +277,35 @@ const Product: React.FC<ProductProps> = ({
         )}
 
         {/* Product Image */}
-        <Image 
-          src={product.image_url ? API_ENDPOINTS.image(product.image_url) : '/placeholder-product.png'} 
-          alt={product.name}
+        <Image
+          src={selectedProduct.image_url ? API_ENDPOINTS.image(selectedProduct.image_url) : '/placeholder-product.png'}
+          alt="Hollow Blocks"
           width="100%"
           height="100%"
           objectFit="cover"
           transition="transform 0.3s ease"
           _hover={{ transform: "scale(1.05)" }}
-        
         />
-        <Flex
-          position="absolute"
-          top="0"
-          left="0"
-          right="0"
-          bottom="0"
-          align="center"
-          justify="center"
-          bg="gray.100"
-          fontSize="5xl"
-          display="none"
-          className="fallback-icon"
-        >
-          🏗️
-        </Flex>
       </Box>
 
       {/* Product Content */}
       <Box p={{ base: 4, md: 5 }} flex="1" display="flex" flexDirection="column">
         {/* Category Badge */}
-        {product.category && (
-          <Badge
-            className={`product-badge product-badge-${getBadgeColorScheme(product.category)}`}
-            colorScheme={getBadgeColorScheme(product.category)}
-            size="sm"
-            px={3}
-            py={1}
-            borderRadius="full"
-            fontSize="xs"
-            fontWeight="600"
-            mb={3}
-            alignSelf="flex-start"
-            textTransform="uppercase"
-          >
-            {product.category}
-          </Badge>
-        )}
+        <Badge
+          className="product-badge product-badge-blue"
+          colorScheme="blue"
+          size="sm"
+          px={3}
+          py={1}
+          borderRadius="full"
+          fontSize="xs"
+          fontWeight="600"
+          mb={3}
+          alignSelf="flex-start"
+          textTransform="uppercase"
+        >
+          HOLLOW BLOCKS
+        </Badge>
 
         {/* Product Name */}
         <Box
@@ -331,23 +316,70 @@ const Product: React.FC<ProductProps> = ({
           lineHeight="1.3"
           mb={2}
           minHeight={{ base: "2rem", md: "2.5rem" }}
-          overflow="hidden"
           cursor="pointer"
           onClick={handleProductClick}
           transition="color 0.2s"
           _hover={{ color: "blue.600" }}
-          css={{
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical"
-          }}
         >
-          {product.name}
+          Hollow Blocks
+        </Box>
+
+        {/* Size Selection */}
+        <Box mb={3}>
+          <Text fontSize="xs" fontWeight="semibold" mb={2} color="gray.600">
+            Select Size:
+          </Text>
+          <SelectRoot
+            collection={sizeOptions}
+            value={selectedSize ? [selectedSize] : []}
+            onValueChange={(details) => {
+              if (details.value && details.value.length > 0) {
+                handleSizeChange(details.value[0]);
+              }
+            }}
+            size="sm"
+          >
+            <SelectTrigger style={{
+              backgroundColor: '#ffffff',
+              color: '#2d3748',
+              border: '2px solid #3182ce',
+              borderRadius: '0.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingRight: '12px',
+              fontWeight: '600'
+            }}>
+              <SelectValueText placeholder="Select size" />
+            </SelectTrigger>
+            <SelectContent style={{
+              backgroundColor: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '0.375rem'
+            }}>
+              {sizeOptions.items.map((option) => (
+                <SelectItem
+                  key={option.value}
+                  item={option.value}
+                  style={{
+                    backgroundColor: '#ffffff',
+                    color: '#2d3748',
+                    fontWeight: '500'
+                  }}
+                  _hover={{
+                    backgroundColor: '#f7fafc'
+                  }}
+                >
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </SelectRoot>
         </Box>
 
         {/* Stock Information */}
         <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={2}>
-          {product.stock_quantity} {formatUnitDisplay(product.unit, product.stock_quantity)} available
+          {selectedProduct.stock_quantity} {selectedProduct.unit} available
         </Text>
 
         {/* Minimum Order Information */}
@@ -361,11 +393,11 @@ const Product: React.FC<ProductProps> = ({
             fontSize="2xs"
             fontWeight="600"
           >
-            Min. Order: {minimumOrder} {formatUnitDisplay(product.unit, minimumOrder)}
+            Min. Order: {minimumOrder} {selectedProduct.unit}
           </Badge>
           {showMinimumOrderWarning && (
             <Text fontSize="2xs" color="red.500" fontWeight="600">
-              ⚠️ Please order at least {minimumOrder} {formatUnitDisplay(product.unit, minimumOrder)}
+              ⚠️ Please order at least {minimumOrder} {selectedProduct.unit}
             </Text>
           )}
         </VStack>
@@ -379,10 +411,10 @@ const Product: React.FC<ProductProps> = ({
             color="blue.600"
             lineHeight="1"
           >
-            ₱{product.price.toFixed(2)}
+            ₱{selectedProduct.price.toFixed(2)}
           </Text>
           <Text className="product-unit" fontSize={{ base: "xs", md: "sm" }} color="gray.500">
-            {formatPerUnitDisplay(product.unit)}
+            per {selectedProduct.unit}
           </Text>
         </Box>
 
@@ -411,9 +443,8 @@ const Product: React.FC<ProductProps> = ({
                   color="white"
                   _hover={{ bg: 'blue.600' }}
                   _active={{ bg: 'blue.700' }}
-                  _focus={{ boxShadow: 'none' }}
                   onClick={handleQuantityDecrease}
-                  disabled={isLoading || product.stock_quantity === 0 || !product.is_active}
+                  disabled={isLoading || selectedProduct.stock_quantity === 0 || !selectedProduct.is_active}
                   borderRadius="full"
                 >
                   <FiMinus />
@@ -443,9 +474,8 @@ const Product: React.FC<ProductProps> = ({
                   color="white"
                   _hover={{ bg: 'blue.600' }}
                   _active={{ bg: 'blue.700' }}
-                  _focus={{ boxShadow: 'none' }}
                   onClick={handleQuantityIncrease}
-                  disabled={isLoading || product.stock_quantity === 0 || !product.is_active}
+                  disabled={isLoading || selectedProduct.stock_quantity === 0 || !selectedProduct.is_active}
                   borderRadius="full"
                 >
                   <FiPlus />
@@ -462,7 +492,7 @@ const Product: React.FC<ProductProps> = ({
             variant="outline"
             colorScheme="blue"
             onClick={handleAddToCart}
-            disabled={isLoading || product.stock_quantity === 0 || !product.is_active}
+            disabled={isLoading || selectedProduct.stock_quantity === 0 || !selectedProduct.is_active}
             loading={isLoading}
             fontWeight="600"
             mb={3}
@@ -476,7 +506,7 @@ const Product: React.FC<ProductProps> = ({
             }}
           >
             <FiShoppingCart style={{ marginRight: 8 }} />
-            {(product.stock_quantity > 0 && product.is_active) ? 'Add to Cart' : 'Out of Stock'}
+            {(selectedProduct.stock_quantity > 0 && selectedProduct.is_active) ? 'Add to Cart' : 'Out of Stock'}
           </Button>
 
           {/* Buy Now Button */}
@@ -486,7 +516,7 @@ const Product: React.FC<ProductProps> = ({
             width="100%"
             colorScheme="blue"
             onClick={handleBuyNow}
-            disabled={isLoading || product.stock_quantity === 0 || !product.is_active}
+            disabled={isLoading || selectedProduct.stock_quantity === 0 || !selectedProduct.is_active}
             loading={isLoading}
             fontWeight="600"
             h={{ base: "40px", md: "44px" }}
@@ -497,9 +527,6 @@ const Product: React.FC<ProductProps> = ({
               bg: "blue.700",
               transform: "translateY(-1px)"
             }}
-            _active={{
-              transform: "translateY(0px)"
-            }}
           >
             Buy Now
           </Button>
@@ -509,4 +536,4 @@ const Product: React.FC<ProductProps> = ({
   );
 };
 
-export default Product;
+export default HollowBlocksProduct;

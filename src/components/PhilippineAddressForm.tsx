@@ -231,12 +231,35 @@ const PhilippineAddressForm: React.FC<PhilippineAddressFormProps> = ({
           value={selectedBarangay ? [selectedBarangay] : []}
           onValueChange={(details) => setSelectedBarangay(details.value[0] || '')}
         >
-          <SelectTrigger style={selectStyle}>
+          <SelectTrigger style={{
+            backgroundColor: '#ffffff',
+            color: '#2d3748',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.375rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingRight: '12px'
+          }}>
             <SelectValueText placeholder="Select your Barangay" />
           </SelectTrigger>
-          <SelectContent style={selectStyle}>
+          <SelectContent style={{
+            backgroundColor: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.375rem'
+          }}>
             {barangays.map((barangay) => (
-              <SelectItem key={barangay.code} item={barangay.code} style={selectStyle}>
+              <SelectItem
+                key={barangay.code}
+                item={barangay.code}
+                style={{
+                  backgroundColor: '#ffffff',
+                  color: '#2d3748'
+                }}
+                _hover={{
+                  backgroundColor: '#f7fafc'
+                }}
+              >
                 {barangay.name}
               </SelectItem>
             ))}
