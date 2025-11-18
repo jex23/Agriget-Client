@@ -3,6 +3,7 @@ export type PaymentTerms = 'cash_on_delivery' | 'over_the_counter';
 export type PaymentStatus = 'pending' | 'paid' | 'failed';
 export type OrderStatus = 'pending' | 'processing' | 'on_delivery' | 'completed' | 'canceled';
 export type OrderPriority = 'high' | 'medium' | 'low';
+export type ShipmentType = 'delivery' | 'pickup';
 
 export interface Order {
   id: number;
@@ -18,6 +19,7 @@ export interface Order {
   shipping_fee?: number; // decimal(10,2) from database
   free_shipping?: boolean;
   priority: OrderPriority;
+  shipment_type: ShipmentType;
   created_at: string;
   updated_at: string;
 
@@ -41,6 +43,7 @@ export interface CreateOrderRequest {
   shipping_fee?: number; // defaults to 0.0 in database
   free_shipping?: boolean; // defaults to false in database
   priority?: OrderPriority; // defaults to 'medium' in database
+  shipment_type?: ShipmentType; // defaults to 'delivery' in database
 }
 
 export interface UpdateOrderRequest {
@@ -52,6 +55,7 @@ export interface UpdateOrderRequest {
   shipping_fee?: number;
   free_shipping?: boolean;
   priority?: OrderPriority;
+  shipment_type?: ShipmentType;
 }
 
 export interface OrderResponse extends Order {}

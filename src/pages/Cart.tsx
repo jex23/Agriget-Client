@@ -24,7 +24,7 @@ import { createListCollection } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import type { User } from '../types/auth.js';
 import type { CartItem } from '../types/cart';
-import type { CreateOrderRequest, PaymentTerms, OrderPriority } from '../types/order';
+import type { CreateOrderRequest, PaymentTerms, OrderPriority, ShipmentType } from '../types/order';
 import { API_ENDPOINTS } from '../constants/api';
 import authService from '../services/authService.js';
 import { apiCartService } from '../services/apiCartService';
@@ -49,6 +49,7 @@ const Cart: React.FC = () => {
   const [shippingAddress, setShippingAddress] = useState('');
   const [paymentTerms, setPaymentTerms] = useState<PaymentTerms>('cash_on_delivery');
   const [priority, setPriority] = useState<OrderPriority>('medium');
+  const [shipmentType, setShipmentType] = useState<ShipmentType>('delivery');
   const [userProfile, setUserProfile] = useState<any>(null);
   const navigate = useNavigate();
   
@@ -65,6 +66,11 @@ const Cart: React.FC = () => {
     { label: 'High Priority', value: 'high' },
     { label: 'Medium Priority', value: 'medium' },
     { label: 'Low Priority', value: 'low' }
+  ];
+
+  const shipmentOptions = [
+    { label: 'Delivery', value: 'delivery' },
+    { label: 'Pickup', value: 'pickup' }
   ];
 
   // Auto-sync timer ref
@@ -417,7 +423,8 @@ const Cart: React.FC = () => {
           shipping_address: shippingAddress.trim(),
           shipping_fee: shippingFee,
           free_shipping: shippingFee === 0,
-          priority: priority
+          priority: priority,
+          shipment_type: shipmentType
         };
 
         return orderService.createOrder(orderData);
@@ -1007,6 +1014,39 @@ const Cart: React.FC = () => {
                     borderRadius: '0.375rem !important'
                   }}>
                     {priorityOptions.map((option) => (
+                      <SelectItem key={option.value} item={option.value} style={{
+                        backgroundColor: '#ffffff !important',
+                        color: '#2d3748 !important'
+                      }}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </SelectRoot>
+              </Box>
+
+              {/* Shipment Type */}
+              <Box>
+                <Text fontSize="sm" fontWeight="semibold" mb={2} style={{ color: '#4a5568 !important' }}>Shipment Type</Text>
+                <SelectRoot
+                  collection={createListCollection({ items: shipmentOptions })}
+                  value={[shipmentType]}
+                  onValueChange={(details) => setShipmentType(details.value?.[0] as ShipmentType || 'delivery')}
+                >
+                  <SelectTrigger style={{
+                    backgroundColor: '#ffffff !important',
+                    color: '#2d3748 !important',
+                    border: '1px solid #e2e8f0 !important',
+                    borderRadius: '0.375rem !important'
+                  }}>
+                    <SelectValueText placeholder="Select shipment type" />
+                  </SelectTrigger>
+                  <SelectContent style={{
+                    backgroundColor: '#ffffff !important',
+                    border: '1px solid #e2e8f0 !important',
+                    borderRadius: '0.375rem !important'
+                  }}>
+                    {shipmentOptions.map((option) => (
                       <SelectItem key={option.value} item={option.value} style={{
                         backgroundColor: '#ffffff !important',
                         color: '#2d3748 !important'

@@ -291,6 +291,17 @@ const Orders: React.FC = () => {
     }
   };
 
+  const getShipmentTypeColor = (shipmentType: string) => {
+    switch (shipmentType) {
+      case 'delivery':
+        return 'blue';
+      case 'pickup':
+        return 'green';
+      default:
+        return 'gray';
+    }
+  };
+
   const formatStatus = (status: string) => {
     return status.split('_').map(word =>
       word.charAt(0).toUpperCase() + word.slice(1)
@@ -518,6 +529,12 @@ const Orders: React.FC = () => {
                           <Text fontSize="sm" color="gray.600">Priority:</Text>
                           <Badge colorScheme={getPriorityColor(order.priority)} size="sm">
                             {formatStatus(order.priority)}
+                          </Badge>
+                        </Flex>
+                        <Flex justify="space-between" align="center">
+                          <Text fontSize="sm" color="gray.600">Shipment Type:</Text>
+                          <Badge colorScheme={getShipmentTypeColor(order.shipment_type)} size="sm">
+                            {formatStatus(order.shipment_type)}
                           </Badge>
                         </Flex>
                         <Flex justify="space-between" align="center">

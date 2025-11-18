@@ -24,7 +24,7 @@ import {
 import { createListCollection } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import type { User } from '../types/auth.js';
-import type { Order, OrderStatus, PaymentStatus } from '../types/order';
+import type { Order, OrderStatus, PaymentStatus, ShipmentType } from '../types/order';
 import authService from '../services/authService.js';
 import { orderService } from '../services/orderService';
 import { ROUTES } from '../constants/routes.js';
@@ -294,6 +294,38 @@ const AdminOrders: React.FC = () => {
     }
   };
 
+  const handleShipmentTypeUpdate = async (orderId: number, newShipmentType: ShipmentType) => {
+    try {
+      setUpdatingOrderId(orderId);
+      await orderService.updateOrder(orderId, { shipment_type: newShipmentType });
+
+      setOrders(prevOrders =>
+        prevOrders.map(order =>
+          order.id === orderId
+            ? { ...order, shipment_type: newShipmentType }
+            : order
+        )
+      );
+
+      toaster.create({
+        title: 'Shipment Type Updated',
+        description: `Shipment type changed to ${formatStatus(newShipmentType)}`,
+        type: 'success',
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error('Error updating shipment type:', error);
+      toaster.create({
+        title: 'Error',
+        description: 'Failed to update shipment type. Please try again.',
+        type: 'error',
+        duration: 3000,
+      });
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  };
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -333,6 +365,17 @@ const AdminOrders: React.FC = () => {
         return 'yellow';
       case 'low':
         return 'gray';
+      default:
+        return 'gray';
+    }
+  };
+
+  const getShipmentTypeColor = (shipmentType: string) => {
+    switch (shipmentType) {
+      case 'delivery':
+        return 'blue';
+      case 'pickup':
+        return 'green';
       default:
         return 'gray';
     }
@@ -709,6 +752,12 @@ const AdminOrders: React.FC = () => {
                                 {formatStatus(order.priority)}
                               </Badge>
                             </Flex>
+                            <Flex justify="space-between" align="center" wrap="wrap">
+                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">Shipment Type:</Text>
+                              <Badge colorScheme={getShipmentTypeColor(order.shipment_type)} size="sm" fontSize={{ base: "2xs", md: "xs" }}>
+                                {formatStatus(order.shipment_type)}
+                              </Badge>
+                            </Flex>
                             {order.shipping_address && (
                               <Flex justify="space-between" align="start" wrap="wrap">
                                 <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={{ base: 1, md: 0 }}>Shipping:</Text>
@@ -803,6 +852,41 @@ const AdminOrders: React.FC = () => {
                                       </Badge>
                                     </SelectItem>
                                   ))}
+                                </SelectContent>
+                              </SelectRoot>
+                            </Box>
+
+                            {/* Shipment Type */}
+                            <Box>
+                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={{ base: 1, md: 2 }}>Shipment Type:</Text>
+                              <SelectRoot
+                                collection={createListCollection({ items: [
+                                  { label: 'Delivery', value: 'delivery' },
+                                  { label: 'Pickup', value: 'pickup' }
+                                ]})}
+                                value={[order.shipment_type]}
+                                onValueChange={(details) => {
+                                  if (details.value && details.value.length > 0) {
+                                    handleShipmentTypeUpdate(order.id, details.value[0] as ShipmentType);
+                                  }
+                                }}
+                                size={{ base: "sm", md: "sm" }}
+                                disabled={updatingOrderId === order.id}
+                              >
+                                <SelectTrigger h={{ base: "36px", md: "40px" }}>
+                                  <SelectValueText />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem item="delivery">
+                                    <Badge colorScheme="blue" size={{ base: "sm", md: "sm" }}>
+                                      Delivery
+                                    </Badge>
+                                  </SelectItem>
+                                  <SelectItem item="pickup">
+                                    <Badge colorScheme="green" size={{ base: "sm", md: "sm" }}>
+                                      Pickup
+                                    </Badge>
+                                  </SelectItem>
                                 </SelectContent>
                               </SelectRoot>
                             </Box>
