@@ -124,9 +124,24 @@ const Cart: React.FC = () => {
         ]);
         
         console.log('🛒 [Cart] Cart data received:', cartData);
-        
+
+        // Log each item's details for debugging
+        cartData.forEach((item, index) => {
+          console.log(`📦 [Cart Item ${index + 1}]`, {
+            id: item.id,
+            product_id: item.product_id,
+            product_name: item.product_name,
+            product_category: item.product_category,
+            product_price: item.product_price,
+            quantity: item.quantity,
+            product_unit: item.product_unit,
+            product_minimum_order: item.product_minimum_order,
+            full_item: item
+          });
+        });
+
         setCartItems(cartData);
-        
+
         // Initialize local quantities with current cart quantities
         const quantities: { [key: number]: number } = {};
         const selections: { [key: number]: boolean } = {};
@@ -260,7 +275,7 @@ const Cart: React.FC = () => {
   const getTotalPrice = () => {
     const total = cartItems.reduce((total, item) => {
       const localQuantity = localQuantities[item.product_id] || 0;
-      return total + (item.product_price * localQuantity);
+      return total + (getItemPrice(item) * localQuantity);
     }, 0);
     console.log('🛒 [Cart] Total price (local):', total);
     return total;
@@ -269,13 +284,116 @@ const Cart: React.FC = () => {
   const getSelectedTotalPrice = () => {
     return getSelectedItems().reduce((total, item) => {
       const localQuantity = localQuantities[item.product_id] || item.quantity;
-      return total + (item.product_price * localQuantity);
+      return total + (getItemPrice(item) * localQuantity);
     }, 0);
+  };
+
+  // Helper function to detect CHB hollow blocks and return size
+  const getCHBHollowBlockSize = (item: CartItem): '4x4' | '5x5' | null => {
+    const productName = item.product_name;
+    const category = item.product_category;
+    const nameLower = productName.toLowerCase();
+    const categoryLower = category?.toLowerCase() || '';
+
+    console.log('🔍 [CHB Detection] Checking product:', {
+      name: productName,
+      category: category,
+      nameLower,
+      categoryLower
+    });
+
+    // Check if category is "Hollow Blocks" or name contains hollow block indicators
+    const isHollowBlock = categoryLower.includes('hollow') ||
+                         nameLower.includes('chb') ||
+                         nameLower.includes('hollow block') ||
+                         nameLower.includes('hollowblock') ||
+                         nameLower.includes('hollow');
+
+    console.log('🔍 [CHB Detection] Is hollow block?', isHollowBlock);
+
+    if (isHollowBlock) {
+      // Check for 4x4 or 4" or 4 inch
+      if (nameLower.includes('4x4') || nameLower.includes('4"') || nameLower.includes('4 inch') || nameLower.includes('4"') || nameLower.includes(' 4')) {
+        console.log('✅ [CHB Detection] Detected as 4x4 hollow block');
+        return '4x4';
+      }
+      // Check for 5x5 or 5" or 5 inch
+      if (nameLower.includes('5x5') || nameLower.includes('5"') || nameLower.includes('5 inch') || nameLower.includes('5"') || nameLower.includes(' 5')) {
+        console.log('✅ [CHB Detection] Detected as 5x5 hollow block');
+        return '5x5';
+      }
+      // Default to 4x4 if no size specified but is hollow block
+      console.log('⚠️ [CHB Detection] Hollow block detected but no size, defaulting to 4x4');
+      return '4x4';
+    }
+
+    console.log('❌ [CHB Detection] Not a hollow block');
+    return null;
+  };
+
+  // Get minimum order for CHB hollow blocks (50) or use product's minimum order
+  const getMinimumOrder = (item: CartItem): number => {
+    const chbSize = getCHBHollowBlockSize(item);
+    if (chbSize) {
+      return 50; // CHB hollow blocks have minimum order of 50
+    }
+    return item.product_minimum_order || 1;
+  };
+
+  // Get pickup price for CHB hollow blocks (no minimum order required)
+  const getCHBPickupPrice = (item: CartItem): number | null => {
+    console.log('💰 [Pickup Price] Checking for:', item.product_name, '| Shipment Type:', shipmentType);
+
+    if (shipmentType !== 'pickup') {
+      console.log('💰 [Pickup Price] Not pickup, returning null');
+      return null; // No special pickup price if not pickup
+    }
+
+    const chbSize = getCHBHollowBlockSize(item);
+    console.log('💰 [Pickup Price] CHB Size detected:', chbSize);
+
+    if (chbSize === '4x4') {
+      console.log('💰 [Pickup Price] Returning ₱14 for 4x4');
+      return 14; // New price for 4x4 when pickup (any quantity)
+    } else if (chbSize === '5x5') {
+      console.log('💰 [Pickup Price] Returning ₱19 for 5x5');
+      return 19; // New price for 5x5 when pickup (any quantity)
+    }
+
+    console.log('💰 [Pickup Price] No CHB size matched, returning null');
+    return null;
+  };
+
+  // Get pickup discount amount for display
+  const getCHBPickupDiscount = (item: CartItem): number => {
+    const pickupPrice = getCHBPickupPrice(item);
+    if (pickupPrice !== null) {
+      const discount = item.product_price - pickupPrice;
+      console.log('🏷️ [Discount] Product:', item.product_name, '| Original:', item.product_price, '| Pickup:', pickupPrice, '| Discount:', discount);
+      return discount; // Show the discount amount
+    }
+    return 0;
+  };
+
+  // Get item price after applying pickup pricing
+  const getItemPrice = (item: CartItem): number => {
+    const pickupPrice = getCHBPickupPrice(item);
+    if (pickupPrice !== null) {
+      console.log('💵 [Item Price] Using pickup price:', pickupPrice, 'for', item.product_name);
+      return pickupPrice; // Return the pickup price for CHB blocks
+    }
+    console.log('💵 [Item Price] Using original price:', item.product_price, 'for', item.product_name);
+    return item.product_price; // Return original price for other items
   };
 
   // Calculate shipping fee for an item based on minimum order
   const getShippingFee = (item: CartItem, quantity: number): number => {
-    const minimumOrder = item.product_minimum_order || 1;
+    // Pickup has no shipping fee
+    if (shipmentType === 'pickup') {
+      return 0;
+    }
+
+    const minimumOrder = getMinimumOrder(item); // Use CHB-aware minimum order
     // If quantity is less than or equal to minimum order, charge shipping fee
     return quantity <= minimumOrder ? 60 : 0;
   };
@@ -664,9 +782,16 @@ const Cart: React.FC = () => {
                           </Heading>
                         </VStack>
                         <VStack gap={2}>
-                          <Text className="cart-item-price" fontWeight="bold">
-                            ₱{item.product_price.toFixed(2)}
-                          </Text>
+                          <VStack gap={0} align="end">
+                            <Text className="cart-item-price" fontWeight="bold">
+                              ₱{getItemPrice(item).toFixed(2)}
+                            </Text>
+                            {getCHBPickupDiscount(item) > 0 && (
+                              <Text fontSize="xs" color="green.600" fontWeight="medium">
+                                Pickup discount: -₱{getCHBPickupDiscount(item)}
+                              </Text>
+                            )}
+                          </VStack>
                           <HStack>
                             <Button
                               className="cart-quantity-button"
@@ -679,9 +804,9 @@ const Cart: React.FC = () => {
                             >
                               -
                             </Button>
-                            <Text 
-                              className="cart-quantity-text" 
-                              minW="40px" 
+                            <Text
+                              className="cart-quantity-text"
+                              minW="40px"
                               textAlign="center"
                             >
                               {localQuantities[item.product_id] || item.quantity}
@@ -699,7 +824,7 @@ const Cart: React.FC = () => {
                             </Button>
                           </HStack>
                           <Text className="cart-item-total" fontWeight="bold">
-                            ₱{(item.product_price * (localQuantities[item.product_id] || item.quantity)).toFixed(2)}
+                            ₱{(getItemPrice(item) * (localQuantities[item.product_id] || item.quantity)).toFixed(2)}
                           </Text>
                         </VStack>
                         <IconButton
@@ -747,6 +872,69 @@ const Cart: React.FC = () => {
                     )}
                   </VStack>
                   <Box borderTop="1px solid #e2e8f0" width="100%" />
+
+                  {/* Shipment Type Selection */}
+                  <Box width="100%">
+                    <Text fontSize="sm" fontWeight="semibold" mb={2} color="gray.700">
+                      Shipment Type
+                    </Text>
+                    <SelectRoot
+                      collection={createListCollection({ items: shipmentOptions })}
+                      value={[shipmentType]}
+                      onValueChange={(details) => setShipmentType(details.value?.[0] as ShipmentType || 'delivery')}
+                      size="sm"
+                    >
+                      <SelectTrigger style={{
+                        backgroundColor: '#ffffff',
+                        color: '#2d3748',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '0.375rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingRight: '12px'
+                      }}>
+                        <SelectValueText placeholder="Select shipment type" />
+                      </SelectTrigger>
+                      <SelectContent style={{
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '0.375rem'
+                      }}>
+                        {shipmentOptions.map((option) => (
+                          <SelectItem
+                            key={option.value}
+                            item={option.value}
+                            style={{
+                              backgroundColor: '#ffffff',
+                              color: '#2d3748'
+                            }}
+                            _hover={{
+                              backgroundColor: '#f7fafc'
+                            }}
+                          >
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </SelectRoot>
+                    {shipmentType === 'pickup' && getSelectedItems().some(item => getCHBHollowBlockSize(item)) && (
+                      <Box bg="green.50" p={2} borderRadius="md" mt={2}>
+                        <Text fontSize="xs" color="green.700" fontWeight="medium">
+                          🎉 Pickup discount applied to hollow blocks!
+                        </Text>
+                        {getSelectedItems().filter(item => getCHBHollowBlockSize(item)).map(item => {
+                          const size = getCHBHollowBlockSize(item);
+                          const discount = getCHBPickupDiscount(item);
+                          return (
+                            <Text key={item.product_id} fontSize="xs" color="green.700">
+                              • {item.product_name}: -₱{discount}/pc (now ₱{getItemPrice(item)}/pc)
+                            </Text>
+                          );
+                        })}
+                      </Box>
+                    )}
+                  </Box>
 
                   {/* Order Priority Selection */}
                   <Box width="100%">
@@ -901,9 +1089,11 @@ const Cart: React.FC = () => {
                 <VStack gap={2} align="stretch">
                   {getSelectedItems().map(item => {
                     const localQuantity = localQuantities[item.product_id] || item.quantity;
-                    const itemTotal = item.product_price * localQuantity;
+                    const itemPrice = getItemPrice(item); // Price after pickup discount
+                    const itemTotal = itemPrice * localQuantity;
                     const itemShippingFee = getShippingFee(item, localQuantity);
-                    const minimumOrder = item.product_minimum_order || 1;
+                    const minimumOrder = getMinimumOrder(item); // CHB-aware minimum order
+                    const pickupDiscount = getCHBPickupDiscount(item);
 
                     return (
                       <Box key={item.id} borderBottom="1px solid #f7fafc" pb={2}>
@@ -920,6 +1110,11 @@ const Cart: React.FC = () => {
                                 </Text>
                               )}
                             </HStack>
+                            {pickupDiscount > 0 && (
+                              <Text fontSize="xs" style={{ color: '#38a169 !important' }} fontWeight="medium">
+                                Pickup discount: -₱{pickupDiscount}/pc
+                              </Text>
+                            )}
                           </VStack>
                           <VStack align="end" gap={0}>
                             <Text fontWeight="medium" style={{ color: '#2d3748 !important' }}>

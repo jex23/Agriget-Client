@@ -12,7 +12,8 @@ import {
   Image,
   Spinner,
   Center,
-  createToaster
+  createToaster,
+  Icon
 } from '@chakra-ui/react';
 import {
   SelectContent,
@@ -23,6 +24,7 @@ import {
 } from '@chakra-ui/react/select';
 import { createListCollection } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
+import { FiImage } from 'react-icons/fi';
 import type { User } from '../types/auth.js';
 import type { Order, OrderStatus, PaymentStatus, ShipmentType } from '../types/order';
 import authService from '../services/authService.js';
@@ -44,6 +46,8 @@ const AdminOrders: React.FC = () => {
   const [sidebarState, setSidebarState] = useState({ isExpanded: false, isMobile: window.innerWidth <= 1024 });
   const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+
   const navigate = useNavigate();
   
   const toaster = createToaster({
@@ -138,7 +142,7 @@ const AdminOrders: React.FC = () => {
       setLoading(true);
       const ordersData = await orderService.getAllOrders();
       setOrders(ordersData);
-      
+
       // Trigger sidebar refresh to update pending count
       setRefreshTrigger(prev => prev + 1);
     } catch (error) {
@@ -146,6 +150,31 @@ const AdminOrders: React.FC = () => {
       setError(error instanceof Error ? error.message : 'Failed to fetch orders');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refreshOrders = async (): Promise<Order[]> => {
+    try {
+      console.log('🔄 [REFRESH] Fetching latest orders from database...');
+      const ordersData = await orderService.getAllOrders();
+      console.log('🔄 [REFRESH] Received orders:', ordersData.length, 'orders');
+
+      // Log the specific order we just updated to verify the data
+      const orderIds = ordersData.map(o => o.id);
+      console.log('🔄 [REFRESH] Order IDs in response:', orderIds);
+
+      setOrders(ordersData);
+      console.log('🔄 [REFRESH] State updated with new orders');
+
+      // Trigger sidebar refresh to update pending count
+      setRefreshTrigger(prev => prev + 1);
+
+      // Return the fresh data so caller can use it directly
+      return ordersData;
+    } catch (error) {
+      console.error('❌ [REFRESH] Error refreshing orders:', error);
+      setError(error instanceof Error ? error.message : 'Failed to refresh orders');
+      return [];
     }
   };
 
@@ -226,17 +255,45 @@ const AdminOrders: React.FC = () => {
   };
 
   const handleOrderStatusUpdate = async (orderId: number, newStatus: OrderStatus) => {
+    console.log('🔵 [ORDER STATUS UPDATE] Starting update...');
+    console.log('  Order ID:', orderId);
+    console.log('  New Status:', newStatus);
+    console.log('  Status Type:', typeof newStatus);
+    console.log('  Valid Statuses:', ['pending', 'processing', 'on_delivery', 'completed', 'canceled']);
+    console.log('  Is Valid:', ['pending', 'processing', 'on_delivery', 'completed', 'canceled'].includes(newStatus));
+
+    const oldOrder = orders.find(o => o.id === orderId);
+    console.log('  Current order status:', oldOrder?.order_status);
+
     try {
       setUpdatingOrderId(orderId);
-      await orderService.updateOrder(orderId, { order_status: newStatus });
-      
-      setOrders(prevOrders => 
-        prevOrders.map(order => 
-          order.id === orderId 
-            ? { ...order, order_status: newStatus }
-            : order
-        )
-      );
+
+      const updateData = { order_status: newStatus };
+      console.log('  Update Data:', JSON.stringify(updateData));
+
+      const response = await orderService.updateOrder(orderId, updateData);
+      console.log('✅ [ORDER STATUS UPDATE] API Response:', response);
+      console.log('  Response order_status:', response.order_status);
+
+      // Add a small delay to ensure backend transaction has committed
+      console.log('  Waiting 300ms for backend transaction to commit...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Refresh orders to ensure state is in sync with database
+      console.log('  Calling refreshOrders()...');
+      const freshOrders = await refreshOrders();
+
+      // Use the fresh data directly instead of relying on state closure
+      const updatedOrder = freshOrders.find(o => o.id === orderId);
+      console.log('  Order in fresh data:', updatedOrder?.order_status);
+
+      if (updatedOrder && updatedOrder.order_status === newStatus) {
+        console.log('✅ [ORDER STATUS UPDATE] Verification successful - order status matches in database');
+      } else {
+        console.warn('⚠️ [ORDER STATUS UPDATE] Verification issue:');
+        console.warn('  Expected status:', newStatus);
+        console.warn('  Actual status in DB:', updatedOrder?.order_status);
+      }
 
       toaster.create({
         title: 'Order Updated',
@@ -244,18 +301,14 @@ const AdminOrders: React.FC = () => {
         type: 'success',
         duration: 3000,
       });
-      
-      // Trigger sidebar refresh if order status changed from/to pending
-      if (newStatus === 'pending' || orders.find(o => o.id === orderId)?.order_status === 'pending') {
-        setRefreshTrigger(prev => prev + 1);
-      }
     } catch (error) {
-      console.error('Error updating order status:', error);
+      console.error('❌ [ORDER STATUS UPDATE] Error:', error);
+      console.error('  Error details:', error instanceof Error ? error.message : 'Unknown error');
       toaster.create({
         title: 'Error',
-        description: 'Failed to update order status. Please try again.',
+        description: error instanceof Error ? error.message : 'Failed to update order status. Please try again.',
         type: 'error',
-        duration: 3000,
+        duration: 5000,
       });
     } finally {
       setUpdatingOrderId(null);
@@ -263,17 +316,28 @@ const AdminOrders: React.FC = () => {
   };
 
   const handlePaymentStatusUpdate = async (orderId: number, newStatus: PaymentStatus) => {
+    console.log('🟢 [PAYMENT STATUS UPDATE] Starting update...');
+    console.log('  Order ID:', orderId);
+    console.log('  New Status:', newStatus);
+    console.log('  Status Type:', typeof newStatus);
+    console.log('  Valid Statuses:', ['pending', 'paid', 'failed']);
+    console.log('  Is Valid:', ['pending', 'paid', 'failed'].includes(newStatus));
+
+    const oldOrder = orders.find(o => o.id === orderId);
+    console.log('  Current payment status:', oldOrder?.payment_status);
+
     try {
       setUpdatingOrderId(orderId);
-      await orderService.updateOrder(orderId, { payment_status: newStatus });
 
-      setOrders(prevOrders =>
-        prevOrders.map(order =>
-          order.id === orderId
-            ? { ...order, payment_status: newStatus }
-            : order
-        )
-      );
+      const updateData = { payment_status: newStatus };
+      console.log('  Update Data:', JSON.stringify(updateData));
+
+      const response = await orderService.updateOrder(orderId, updateData);
+      console.log('✅ [PAYMENT STATUS UPDATE] API Response:', response);
+      console.log('  Response payment_status:', response.payment_status);
+
+      // Refresh orders to ensure state is in sync with database
+      await refreshOrders();
 
       toaster.create({
         title: 'Payment Updated',
@@ -282,12 +346,13 @@ const AdminOrders: React.FC = () => {
         duration: 3000,
       });
     } catch (error) {
-      console.error('Error updating payment status:', error);
+      console.error('❌ [PAYMENT STATUS UPDATE] Error:', error);
+      console.error('  Error details:', error instanceof Error ? error.message : 'Unknown error');
       toaster.create({
         title: 'Error',
-        description: 'Failed to update payment status. Please try again.',
+        description: error instanceof Error ? error.message : 'Failed to update payment status. Please try again.',
         type: 'error',
-        duration: 3000,
+        duration: 5000,
       });
     } finally {
       setUpdatingOrderId(null);
@@ -295,17 +360,28 @@ const AdminOrders: React.FC = () => {
   };
 
   const handleShipmentTypeUpdate = async (orderId: number, newShipmentType: ShipmentType) => {
+    console.log('🟡 [SHIPMENT TYPE UPDATE] Starting update...');
+    console.log('  Order ID:', orderId);
+    console.log('  New Shipment Type:', newShipmentType);
+    console.log('  Type:', typeof newShipmentType);
+    console.log('  Valid Types:', ['delivery', 'pickup']);
+    console.log('  Is Valid:', ['delivery', 'pickup'].includes(newShipmentType));
+
+    const oldOrder = orders.find(o => o.id === orderId);
+    console.log('  Current shipment type:', oldOrder?.shipment_type);
+
     try {
       setUpdatingOrderId(orderId);
-      await orderService.updateOrder(orderId, { shipment_type: newShipmentType });
 
-      setOrders(prevOrders =>
-        prevOrders.map(order =>
-          order.id === orderId
-            ? { ...order, shipment_type: newShipmentType }
-            : order
-        )
-      );
+      const updateData = { shipment_type: newShipmentType };
+      console.log('  Update Data:', JSON.stringify(updateData));
+
+      const response = await orderService.updateOrder(orderId, updateData);
+      console.log('✅ [SHIPMENT TYPE UPDATE] API Response:', response);
+      console.log('  Response shipment_type:', response.shipment_type);
+
+      // Refresh orders to ensure state is in sync with database
+      await refreshOrders();
 
       toaster.create({
         title: 'Shipment Type Updated',
@@ -314,12 +390,13 @@ const AdminOrders: React.FC = () => {
         duration: 3000,
       });
     } catch (error) {
-      console.error('Error updating shipment type:', error);
+      console.error('❌ [SHIPMENT TYPE UPDATE] Error:', error);
+      console.error('  Error details:', error instanceof Error ? error.message : 'Unknown error');
       toaster.create({
         title: 'Error',
-        description: 'Failed to update shipment type. Please try again.',
+        description: error instanceof Error ? error.message : 'Failed to update shipment type. Please try again.',
         type: 'error',
-        duration: 3000,
+        duration: 5000,
       });
     } finally {
       setUpdatingOrderId(null);
@@ -441,6 +518,7 @@ const AdminOrders: React.FC = () => {
     }
     return null;
   };
+
 
   if (!user) {
     return null;
@@ -798,6 +876,39 @@ const AdminOrders: React.FC = () => {
                         {/* Right Section - Status Management */}
                         <VStack align={{ base: "stretch", md: "stretch", lg: "end" }} gap={{ base: 2, md: 3 }} minW={{ base: "full", md: "250px", lg: "300px" }}>
                           <VStack align="stretch" gap={{ base: 2, md: 3 }} w="full">
+                            {/* View Order Proofs Button */}
+                            <Box>
+                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={{ base: 1, md: 2 }}>Order Proof:</Text>
+                              <Button
+                                size={{ base: "sm", md: "sm" }}
+                                variant="outline"
+                                onClick={() => {
+                                  navigate(`/admin/orders/${order.id}/proof`);
+                                }}
+                                w="full"
+                                style={{
+                                  backgroundColor: '#ffffff',
+                                  color: order.order_status === 'completed' ? '#3182ce' : '#718096',
+                                  borderColor: order.order_status === 'completed' ? '#3182ce' : '#cbd5e0'
+                                }}
+                                _hover={{
+                                  backgroundColor: order.order_status === 'completed' ? '#ebf8ff' : '#f7fafc'
+                                }}
+                              >
+                                <HStack gap={1}>
+                                  <Icon><FiImage /></Icon>
+                                  <Text fontSize={{ base: "xs", md: "sm" }}>
+                                    {order.order_status === 'completed' ? 'Manage Proofs' : 'View Proofs'}
+                                  </Text>
+                                </HStack>
+                              </Button>
+                              {order.order_status !== 'completed' && (
+                                <Text fontSize="2xs" color="orange.600" mt={1}>
+                                  Only completed orders can have proofs
+                                </Text>
+                              )}
+                            </Box>
+
                             {/* Order Status */}
                             <Box>
                               <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={{ base: 1, md: 2 }}>Order Status:</Text>

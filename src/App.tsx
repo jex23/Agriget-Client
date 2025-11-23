@@ -6,6 +6,7 @@ import Register from './pages/Register.js';
 import Home from './pages/Home.js';
 import Cart from './pages/Cart.js';
 import Orders from './pages/Orders.js';
+import UserOrderProofPage from './pages/UserOrderProofPage.js';
 import Profile from './pages/Profile.js';
 import ProductDetails from './pages/ProductDetails.js';
 import Admin from './pages/Admin.js';
@@ -14,6 +15,7 @@ import AdminCart from './pages/AdminCart.js';
 import AdminUser from './pages/AdminUser.js';
 import AdminOrders from './pages/AdminOrders.js';
 import AdminNotifications from './pages/AdminNotifications.js';
+import OrderProofPage from './pages/OrderProofPage.js';
 import { ROUTES } from './constants/routes.js';
 import './App.css';
 import './pages/Login.css';
@@ -198,6 +200,7 @@ const AppContent: React.FC = () => {
             <Route path={ROUTES.HOME} element={<Home />} />
             <Route path={ROUTES.CART} element={<Cart />} />
             <Route path={ROUTES.ORDERS} element={<Orders />} />
+            <Route path={ROUTES.ORDER_PROOF} element={<UserOrderProofPage />} />
             <Route path={ROUTES.PROFILE} element={<Profile />} />
             <Route path={ROUTES.PRODUCT_DETAILS} element={<ProductDetails />} />
             <Route path={ROUTES.ADMIN} element={<Admin />} />
@@ -205,6 +208,7 @@ const AppContent: React.FC = () => {
             <Route path={ROUTES.ADMIN_CART} element={<AdminCart />} />
             <Route path={ROUTES.ADMIN_USERS} element={<AdminUser />} />
             <Route path={ROUTES.ADMIN_ORDERS} element={<AdminOrders />} />
+            <Route path={ROUTES.ADMIN_ORDER_PROOF} element={<OrderProofPage />} />
             <Route path={ROUTES.ADMIN_NOTIFICATIONS} element={<AdminNotifications />} />
             <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
           </Routes>

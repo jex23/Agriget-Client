@@ -1,4 +1,5 @@
-export const API_BASE_URL = 'http://127.0.0.1:8000';
+export const API_BASE_URL = 'https://jamesgalos.shop/apiv1/agriget';
+//export const API_BASE_URL = 'http://localhost:8000';
 
 export const API_ENDPOINTS = {
   // Auth endpoints
@@ -30,4 +31,10 @@ export const API_ENDPOINTS = {
   notifications: `${API_BASE_URL}/notifications`,
   notificationById: (id: number) => `${API_BASE_URL}/notifications/${id}`,
   notificationsUnreadCount: `${API_BASE_URL}/notifications/unread/count`,
+
+  // Order Proof endpoints
+  orderProofs: `${API_BASE_URL}/order-proofs`,
+  orderProofsByOrderId: (orderId: number) => `${API_BASE_URL}/order-proofs/${orderId}`,
+  orderProofById: (proofId: number) => `${API_BASE_URL}/order-proofs/proof/${proofId}`,
+  orderProofUpdate: (proofId: number) => `${API_BASE_URL}/order-proofs/${proofId}`,
 } as const;

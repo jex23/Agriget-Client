@@ -54,9 +54,37 @@ class OrderService {
   }
 
   async getAllOrders(): Promise<OrderResponse[]> {
-    return this.makeRequest<OrderResponse[]>(API_ENDPOINTS.allOrders, {
-      method: 'GET',
-    });
+    console.log('📡 [OrderService] getAllOrders called');
+
+    // Add timestamp to prevent any aggressive caching
+    const timestamp = Date.now();
+    const url = `${API_ENDPOINTS.allOrders}?_t=${timestamp}`;
+    console.log('  API Endpoint:', url);
+
+    try {
+      const response = await this.makeRequest<OrderResponse[]>(url, {
+        method: 'GET',
+        cache: 'no-store', // Stronger cache prevention than 'no-cache'
+      });
+      console.log('✅ [OrderService] getAllOrders success');
+      console.log('  Total orders received:', response.length);
+
+      // Log first 3 orders for debugging
+      if (response.length > 0) {
+        console.log('  Sample orders (first 3):');
+        response.slice(0, 3).forEach((order, idx) => {
+          console.log(`    [${idx + 1}] Order #${order.order_number} (ID: ${order.id}):`);
+          console.log(`        order_status: ${order.order_status}`);
+          console.log(`        payment_status: ${order.payment_status}`);
+          console.log(`        shipment_type: ${order.shipment_type}`);
+        });
+      }
+
+      return response;
+    } catch (error) {
+      console.error('❌ [OrderService] getAllOrders failed:', error);
+      throw error;
+    }
   }
 
   async getOrder(id: number): Promise<OrderResponse> {
@@ -66,10 +94,23 @@ class OrderService {
   }
 
   async updateOrder(id: number, orderData: UpdateOrderRequest): Promise<OrderResponse> {
-    return this.makeRequest<OrderResponse>(API_ENDPOINTS.order(id), {
-      method: 'PUT',
-      body: JSON.stringify(orderData),
-    });
+    console.log('📡 [OrderService] updateOrder called');
+    console.log('  Order ID:', id);
+    console.log('  Update Data:', orderData);
+    console.log('  JSON Body:', JSON.stringify(orderData));
+    console.log('  API Endpoint:', API_ENDPOINTS.order(id));
+
+    try {
+      const response = await this.makeRequest<OrderResponse>(API_ENDPOINTS.order(id), {
+        method: 'PUT',
+        body: JSON.stringify(orderData),
+      });
+      console.log('✅ [OrderService] updateOrder success:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ [OrderService] updateOrder failed:', error);
+      throw error;
+    }
   }
 
   async cancelOrder(id: number): Promise<OrderResponse> {

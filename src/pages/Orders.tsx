@@ -25,7 +25,7 @@ import {
 import { createListCollection } from '@chakra-ui/react';
 import { Alert } from '@chakra-ui/react/alert';
 import { useNavigate } from 'react-router-dom';
-import { FiChevronDown } from 'react-icons/fi';
+import { FiChevronDown, FiImage } from 'react-icons/fi';
 import type { User } from '../types/auth.js';
 import type { Order } from '../types/order';
 import type { CartItem } from '../types/cart';
@@ -48,6 +48,7 @@ const Orders: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null);
+
   const navigate = useNavigate();
   const toaster = createToaster({
     placement: 'top',
@@ -318,6 +319,7 @@ const Orders: React.FC = () => {
     });
   };
 
+
   if (loading) {
     return (
       <Box minH="100vh" bg="gray.50">
@@ -580,6 +582,29 @@ const Orders: React.FC = () => {
                         {formatDate(order.created_at)}
                       </Text>
                       <Flex direction="column" gap={2} w={{ base: "full", lg: "auto" }}>
+                        {/* Proof of Payment Button */}
+                        <Button
+                          size="sm"
+                          colorScheme="blue"
+                          variant="outline"
+                          onClick={() => navigate(`/orders/${order.id}/proof`)}
+                          w={{ base: "full", lg: "120px" }}
+                          style={{
+                            backgroundColor: '#ffffff',
+                            color: '#3182ce',
+                            borderColor: '#3182ce',
+                            border: '1px solid #3182ce'
+                          }}
+                          _hover={{
+                            backgroundColor: '#ebf8ff'
+                          }}
+                        >
+                          <HStack gap={1}>
+                            <Icon><FiImage /></Icon>
+                            <Text>View Proof</Text>
+                          </HStack>
+                        </Button>
+
                         {canCancelOrder(order) ? (
                           <Button
                             className="orders-cancel-button"
