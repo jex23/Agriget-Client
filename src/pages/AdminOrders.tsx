@@ -459,7 +459,11 @@ const AdminOrders: React.FC = () => {
   };
 
   const formatStatus = (status: string) => {
-    return status.split('_').map(word => 
+    // Special case for payment terms
+    if (status === 'over_the_counter') {
+      return 'Pay Upon Pick Up';
+    }
+    return status.split('_').map(word =>
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
   };

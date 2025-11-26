@@ -59,7 +59,7 @@ const Cart: React.FC = () => {
 
   const paymentOptions = [
     { label: 'Cash on Delivery', value: 'cash_on_delivery' },
-    { label: 'Over the Counter', value: 'over_the_counter' }
+    { label: 'Pay Upon Pick Up', value: 'over_the_counter' }
   ];
 
   const priorityOptions = [

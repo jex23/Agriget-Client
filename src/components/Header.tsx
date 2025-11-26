@@ -12,7 +12,7 @@ import {
   IconButton,
   Image
 } from '@chakra-ui/react';
-import logoImg from '../images/logo.png';
+import logoImg from '../images/new_logo.jpeg';
 import { 
   FiShoppingCart, 
   FiLogOut, 

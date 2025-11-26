@@ -12,7 +12,7 @@ import {
   Badge,
   Spinner
 } from '@chakra-ui/react';
-import logoImg from '../images/logo.png';
+import logoImg from '../images/new_logo.jpeg';
 import { useNavigate } from 'react-router-dom';
 import type { User } from '../types/auth.js';
 import type { NotificationResponse } from '../types/notification.js';
