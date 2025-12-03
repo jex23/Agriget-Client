@@ -13,8 +13,18 @@ import {
   Spinner,
   Center,
   createToaster,
-  Icon
+  Icon,
+  Table
 } from '@chakra-ui/react';
+import {
+  DialogRoot,
+  DialogContent,
+  DialogHeader,
+  DialogBody,
+  DialogFooter,
+  DialogTitle,
+  DialogBackdrop,
+} from '@chakra-ui/react/dialog';
 import {
   SelectContent,
   SelectItem,
@@ -46,6 +56,19 @@ const AdminOrders: React.FC = () => {
   const [sidebarState, setSidebarState] = useState({ isExpanded: false, isMobile: window.innerWidth <= 1024 });
   const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [successModal, setSuccessModal] = useState<{
+    isOpen: boolean;
+    type: 'order_status' | 'payment_status' | 'shipment_type' | null;
+    oldValue: string;
+    newValue: string;
+    orderId: number | null;
+  }>({
+    isOpen: false,
+    type: null,
+    oldValue: '',
+    newValue: '',
+    orderId: null,
+  });
 
 
   const navigate = useNavigate();
@@ -62,7 +85,7 @@ const AdminOrders: React.FC = () => {
       { label: 'Processing', value: 'processing' },
       { label: 'On Delivery', value: 'on_delivery' },
       { label: 'Completed', value: 'completed' },
-      { label: 'Canceled', value: 'canceled' },
+      { label: 'Cancelled', value: 'canceled' },
     ],
   });
 
@@ -73,17 +96,22 @@ const AdminOrders: React.FC = () => {
       { label: 'Processing', value: 'processing' },
       { label: 'On Delivery', value: 'on_delivery' },
       { label: 'Completed', value: 'completed' },
-      { label: 'Canceled', value: 'canceled' },
+      { label: 'Cancelled', value: 'canceled' },
     ];
+
+    let filteredOptions = allOptions;
 
     // If current status is not 'pending', exclude 'pending' from options
     if (currentStatus !== 'pending') {
-      return createListCollection({
-        items: allOptions.filter(option => option.value !== 'pending')
-      });
+      filteredOptions = filteredOptions.filter(option => option.value !== 'pending');
     }
 
-    return createListCollection({ items: allOptions });
+    // If current status has moved beyond 'processing', exclude 'processing' from options
+    if (currentStatus === 'on_delivery' || currentStatus === 'completed' || currentStatus === 'canceled') {
+      filteredOptions = filteredOptions.filter(option => option.value !== 'processing');
+    }
+
+    return createListCollection({ items: filteredOptions });
   };
 
   // Helper function to get available payment status options based on current status
@@ -232,22 +260,28 @@ const AdminOrders: React.FC = () => {
 
   useEffect(() => {
     let filtered: Order[];
-    
+
     if (selectedStatus === 'all') {
       filtered = orders;
     } else if (selectedStatus === 'needs_processing') {
       // Filter orders that need immediate processing
-      filtered = orders.filter(order => 
+      filtered = orders.filter(order =>
         isHighPriorityOrder(order) || isUrgentOrder(order)
       );
     } else {
       filtered = orders.filter(order => order.order_status === selectedStatus);
     }
-    
-    // Always sort by priority regardless of filter
-    const sortedFiltered = sortOrdersByPriority(filtered);
-    setFilteredOrders(sortedFiltered);
-  }, [orders, selectedStatus]);
+
+    // Only sort if we're not currently updating an order
+    // This keeps the order in place during status updates
+    if (updatingOrderId === null) {
+      const sortedFiltered = sortOrdersByPriority(filtered);
+      setFilteredOrders(sortedFiltered);
+    } else {
+      // Just update the filtered list without re-sorting
+      setFilteredOrders(filtered);
+    }
+  }, [orders, selectedStatus, updatingOrderId]);
 
 
   const handleSidebarToggle = () => {
@@ -263,7 +297,8 @@ const AdminOrders: React.FC = () => {
     console.log('  Is Valid:', ['pending', 'processing', 'on_delivery', 'completed', 'canceled'].includes(newStatus));
 
     const oldOrder = orders.find(o => o.id === orderId);
-    console.log('  Current order status:', oldOrder?.order_status);
+    const oldStatus = oldOrder?.order_status || '';
+    console.log('  Current order status:', oldStatus);
 
     try {
       setUpdatingOrderId(orderId);
@@ -275,31 +310,33 @@ const AdminOrders: React.FC = () => {
       console.log('✅ [ORDER STATUS UPDATE] API Response:', response);
       console.log('  Response order_status:', response.order_status);
 
-      // Add a small delay to ensure backend transaction has committed
-      console.log('  Waiting 300ms for backend transaction to commit...');
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Update the order in the current state without triggering a re-sort
+      setOrders(prevOrders =>
+        prevOrders.map(o =>
+          o.id === orderId ? { ...o, order_status: newStatus } : o
+        )
+      );
 
-      // Refresh orders to ensure state is in sync with database
-      console.log('  Calling refreshOrders()...');
-      const freshOrders = await refreshOrders();
+      // Trigger sidebar refresh to update pending count
+      setRefreshTrigger(prev => prev + 1);
 
-      // Use the fresh data directly instead of relying on state closure
-      const updatedOrder = freshOrders.find(o => o.id === orderId);
-      console.log('  Order in fresh data:', updatedOrder?.order_status);
+      console.log('✅ [ORDER STATUS UPDATE] Order updated in state');
+      console.log('  Updated to:', newStatus);
 
-      if (updatedOrder && updatedOrder.order_status === newStatus) {
-        console.log('✅ [ORDER STATUS UPDATE] Verification successful - order status matches in database');
-      } else {
-        console.warn('⚠️ [ORDER STATUS UPDATE] Verification issue:');
-        console.warn('  Expected status:', newStatus);
-        console.warn('  Actual status in DB:', updatedOrder?.order_status);
-      }
-
-      toaster.create({
-        title: 'Order Updated',
-        description: `Order status changed to ${formatStatus(newStatus)}`,
-        type: 'success',
-        duration: 3000,
+      // Show success modal
+      console.log('🎯 [MODAL] Setting success modal state:', {
+        isOpen: true,
+        type: 'order_status',
+        oldValue: oldStatus,
+        newValue: newStatus,
+        orderId: orderId,
+      });
+      setSuccessModal({
+        isOpen: true,
+        type: 'order_status',
+        oldValue: oldStatus,
+        newValue: newStatus,
+        orderId: orderId,
       });
     } catch (error) {
       console.error('❌ [ORDER STATUS UPDATE] Error:', error);
@@ -324,7 +361,8 @@ const AdminOrders: React.FC = () => {
     console.log('  Is Valid:', ['pending', 'paid', 'failed'].includes(newStatus));
 
     const oldOrder = orders.find(o => o.id === orderId);
-    console.log('  Current payment status:', oldOrder?.payment_status);
+    const oldStatus = oldOrder?.payment_status || '';
+    console.log('  Current payment status:', oldStatus);
 
     try {
       setUpdatingOrderId(orderId);
@@ -339,11 +377,13 @@ const AdminOrders: React.FC = () => {
       // Refresh orders to ensure state is in sync with database
       await refreshOrders();
 
-      toaster.create({
-        title: 'Payment Updated',
-        description: `Payment status changed to ${formatStatus(newStatus)}`,
-        type: 'success',
-        duration: 3000,
+      // Show success modal
+      setSuccessModal({
+        isOpen: true,
+        type: 'payment_status',
+        oldValue: oldStatus,
+        newValue: newStatus,
+        orderId: orderId,
       });
     } catch (error) {
       console.error('❌ [PAYMENT STATUS UPDATE] Error:', error);
@@ -368,7 +408,8 @@ const AdminOrders: React.FC = () => {
     console.log('  Is Valid:', ['delivery', 'pickup'].includes(newShipmentType));
 
     const oldOrder = orders.find(o => o.id === orderId);
-    console.log('  Current shipment type:', oldOrder?.shipment_type);
+    const oldShipmentType = oldOrder?.shipment_type || '';
+    console.log('  Current shipment type:', oldShipmentType);
 
     try {
       setUpdatingOrderId(orderId);
@@ -383,11 +424,13 @@ const AdminOrders: React.FC = () => {
       // Refresh orders to ensure state is in sync with database
       await refreshOrders();
 
-      toaster.create({
-        title: 'Shipment Type Updated',
-        description: `Shipment type changed to ${formatStatus(newShipmentType)}`,
-        type: 'success',
-        duration: 3000,
+      // Show success modal
+      setSuccessModal({
+        isOpen: true,
+        type: 'shipment_type',
+        oldValue: oldShipmentType,
+        newValue: newShipmentType,
+        orderId: orderId,
       });
     } catch (error) {
       console.error('❌ [SHIPMENT TYPE UPDATE] Error:', error);
@@ -560,6 +603,9 @@ const AdminOrders: React.FC = () => {
     );
   }
 
+  // Debug: Log modal state on every render
+  console.log('🎯 [MODAL] Current modal state:', successModal);
+
   return (
     <Box className="admin-orders-container">
       <AdminSidebar 
@@ -699,7 +745,7 @@ const AdminOrders: React.FC = () => {
                       📋 No orders found
                     </Text>
                     <Text color="gray.400" textAlign="center" mb={6} fontSize={{ base: "sm", md: "md" }} px={{ base: 2, md: 0 }}>
-                      {orders.length === 0 
+                      {orders.length === 0
                         ? "No orders have been placed yet."
                         : `No orders found with status "${selectedStatus === 'all' ? 'All' : formatStatus(selectedStatus)}". Try changing the filter.`
                       }
@@ -707,332 +753,399 @@ const AdminOrders: React.FC = () => {
                   </VStack>
                 </Box>
               ) : (
-                <VStack gap={4} align="stretch">
-                  {filteredOrders.map((order) => {
-                    const priorityIndicator = getPriorityIndicator(order);
-                    
-                    return (
-                    <Box 
-                      key={order.id} 
-                      bg={priorityIndicator ? priorityIndicator.bg : "white"}
-                      p={{ base: 4, md: 5, lg: 6 }} 
-                      shadow={priorityIndicator ? "lg" : "md"}
-                      borderRadius={{ base: "md", md: "lg" }} 
-                      border={priorityIndicator ? "2px solid" : "1px solid"}
-                      borderColor={priorityIndicator ? priorityIndicator.borderColor : "gray.200"}
-                      className="admin-order-card"
-                      position="relative"
-                      overflow="hidden"
-                    >
-                      {/* Priority Indicator Badge */}
-                      {priorityIndicator && (
-                        <Box
-                          position="absolute"
-                          top={{ base: 2, md: 3 }}
-                          right={{ base: 2, md: 3 }}
-                          zIndex={2}
-                        >
-                          <Badge 
-                            colorScheme={priorityIndicator.color}
-                            fontSize={{ base: "2xs", md: "xs" }}
-                            fontWeight="bold"
-                            px={{ base: 2, md: 3 }}
-                            py={1}
-                            borderRadius="full"
-                            textTransform="uppercase"
-                            letterSpacing="wide"
-                          >
-                            <HStack gap={1}>
-                              <Text>{priorityIndicator.icon}</Text>
-                              <Text display={{ base: "none", sm: "block" }}>{priorityIndicator.text}</Text>
-                            </HStack>
-                          </Badge>
-                        </Box>
-                      )}
-                      
-                      <Flex direction={{ base: "column", md: "row" }} gap={{ base: 4, md: 6 }} align="stretch">
-                        {/* Left Section - Order Info */}
-                        <Flex gap={{ base: 3, md: 4 }} flex={1} align="start">
-                          <Box w={{ base: "70px", sm: "80px", md: "100px" }} h={{ base: "70px", sm: "80px", md: "100px" }} flexShrink={0}>
-                            {order.product_image ? (
-                              <Image
-                                src={API_ENDPOINTS.image(order.product_image)}
-                                alt={order.product_name || 'Product'}
-                                w="full"
-                                h="full"
-                                objectFit="cover"
-                                borderRadius={{ base: "md", md: "lg" }}
-                              />
-                            ) : (
-                              <Box
-                                w="full"
-                                h="full"
-                                bg="gray.100"
-                                borderRadius={{ base: "md", md: "lg" }}
-                                display="flex"
-                                alignItems="center"
-                                justifyContent="center"
-                                fontSize={{ base: "xl", md: "2xl" }}
-                              >
-                                🏗️
-                              </Box>
-                            )}
-                          </Box>
-                          <VStack align="start" flex={1} gap={{ base: 1, md: 2 }} justify="start" minW={0}>
-                            <Text fontWeight="bold" fontSize={{ base: "md", md: "lg" }} color="gray.800" truncate>
-                              {order.product_name || 'Product'}
-                            </Text>
-                            <VStack align="start" gap={1}>
-                              <Flex gap={{ base: 1, sm: 4 }} wrap="wrap" align="center">
-                                <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">
-                                  Qty: <Text as="span" fontWeight="medium">{order.quantity}</Text>
-                                </Text>
-                                <Text fontSize={{ base: "md", md: "lg" }} fontWeight="bold" color="gray.700">
-                                  ₱{order.total_amount.toFixed(2)}
-                                </Text>
-                              </Flex>
-                              {order.shipping_fee !== undefined && order.shipping_fee > 0 && !order.free_shipping && (
-                                <HStack gap={2}>
-                                  <Text fontSize={{ base: "2xs", md: "xs" }} color="orange.600" fontWeight="semibold">
-                                    + ₱{order.shipping_fee.toFixed(2)} shipping
+                <Box bg="white" borderRadius="lg" shadow="md" overflow="hidden">
+                  <Box overflowX="auto">
+                    <Table.Root size="sm" variant="outline" className="admin-orders-table">
+                      <Table.Header>
+                        <Table.Row bg="gray.50">
+                          <Table.ColumnHeader w="80px" textAlign="center">Product</Table.ColumnHeader>
+                          <Table.ColumnHeader minW="200px">Order Details</Table.ColumnHeader>
+                          <Table.ColumnHeader minW="150px">Customer</Table.ColumnHeader>
+                          <Table.ColumnHeader minW="120px" textAlign="right">Amount</Table.ColumnHeader>
+                          <Table.ColumnHeader minW="140px">Order Status</Table.ColumnHeader>
+                          <Table.ColumnHeader minW="140px">Payment</Table.ColumnHeader>
+                          <Table.ColumnHeader minW="120px">Shipment</Table.ColumnHeader>
+                          <Table.ColumnHeader minW="100px">Priority</Table.ColumnHeader>
+                          <Table.ColumnHeader minW="120px" textAlign="center">Actions</Table.ColumnHeader>
+                        </Table.Row>
+                      </Table.Header>
+                      <Table.Body>
+                        {filteredOrders.map((order) => {
+                          const priorityIndicator = getPriorityIndicator(order);
+
+                          return (
+                            <Table.Row
+                              key={order.id}
+                              bg={priorityIndicator ? priorityIndicator.bg : "white"}
+                              borderLeft={priorityIndicator ? "4px solid" : "none"}
+                              borderColor={priorityIndicator ? priorityIndicator.borderColor : "transparent"}
+                              _hover={{ bg: "gray.50" }}
+                              className="admin-order-row"
+                            >
+                              {/* Product Image */}
+                              <Table.Cell textAlign="center">
+                                <Box w="60px" h="60px" mx="auto">
+                                  {order.product_image ? (
+                                    <Image
+                                      src={API_ENDPOINTS.image(order.product_image)}
+                                      alt={order.product_name || 'Product'}
+                                      w="full"
+                                      h="full"
+                                      objectFit="cover"
+                                      borderRadius="md"
+                                    />
+                                  ) : (
+                                    <Box
+                                      w="full"
+                                      h="full"
+                                      bg="gray.100"
+                                      borderRadius="md"
+                                      display="flex"
+                                      alignItems="center"
+                                      justifyContent="center"
+                                      fontSize="xl"
+                                    >
+                                      🏗️
+                                    </Box>
+                                  )}
+                                </Box>
+                              </Table.Cell>
+
+                              {/* Order Details */}
+                              <Table.Cell>
+                                <VStack align="start" gap={1}>
+                                  {priorityIndicator && (
+                                    <Badge
+                                      colorScheme={priorityIndicator.color}
+                                      fontSize="2xs"
+                                      fontWeight="bold"
+                                      px={2}
+                                      py={0.5}
+                                      borderRadius="full"
+                                    >
+                                      {priorityIndicator.icon} {priorityIndicator.text}
+                                    </Badge>
+                                  )}
+                                  <Text fontWeight="bold" fontSize="sm" color="gray.800" lineClamp={1}>
+                                    {order.product_name || 'Product'}
                                   </Text>
-                                </HStack>
-                              )}
-                              {order.free_shipping && (
-                                <Badge colorScheme="green" size="sm" fontSize="2xs">
-                                  FREE SHIPPING
-                                </Badge>
-                              )}
-                            </VStack>
-                            <Text fontSize={{ base: "xs", md: "sm" }} fontWeight="bold" color="blue.600">
-                              #{order.order_number}
-                            </Text>
-                            <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" truncate>
-                              Customer: <Text as="span" fontWeight="medium">{order.user_first_name} {order.user_last_name}</Text>
-                            </Text>
-                            <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" truncate display={{ base: "none", sm: "block" }}>
-                              Email: <Text as="span" fontWeight="medium">{order.user_email}</Text>
-                            </Text>
-                          </VStack>
-                        </Flex>
-
-                        {/* Middle Section - Order Details */}
-                        <VStack align="start" gap={{ base: 2, md: 3 }} minW={{ base: "full", md: "280px", lg: "300px" }}>
-                          <Text fontSize={{ base: "xs", md: "sm" }} color="gray.500" fontWeight="medium">
-                            Order Details
-                          </Text>
-                          <VStack align="stretch" gap={{ base: 1, md: 2 }} w="full">
-                            <Flex justify="space-between" align="center" wrap="wrap">
-                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">Payment Terms:</Text>
-                              <Text fontSize={{ base: "xs", md: "sm" }} fontWeight="medium">
-                                {formatStatus(order.payment_terms)}
-                              </Text>
-                            </Flex>
-                            <Flex justify="space-between" align="center" wrap="wrap">
-                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">Priority:</Text>
-                              <Badge colorScheme={getPriorityColor(order.priority)} size="sm" fontSize={{ base: "2xs", md: "xs" }}>
-                                {formatStatus(order.priority)}
-                              </Badge>
-                            </Flex>
-                            <Flex justify="space-between" align="center" wrap="wrap">
-                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">Shipment Type:</Text>
-                              <Badge colorScheme={getShipmentTypeColor(order.shipment_type)} size="sm" fontSize={{ base: "2xs", md: "xs" }}>
-                                {formatStatus(order.shipment_type)}
-                              </Badge>
-                            </Flex>
-                            {order.shipping_address && (
-                              <Flex justify="space-between" align="start" wrap="wrap">
-                                <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={{ base: 1, md: 0 }}>Shipping:</Text>
-                                <Text fontSize={{ base: "xs", md: "sm" }} fontWeight="medium" maxW={{ base: "100%", md: "180px" }} textAlign={{ base: "left", md: "right" }}>
-                                  {order.shipping_address}
-                                </Text>
-                              </Flex>
-                            )}
-                            <Flex justify="space-between" align="center" wrap="wrap">
-                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">Shipping Fee:</Text>
-                              {order.free_shipping ? (
-                                <Badge colorScheme="green" size="sm" fontSize="2xs">
-                                  FREE
-                                </Badge>
-                              ) : (
-                                <Text fontSize={{ base: "xs", md: "sm" }} fontWeight="bold" color="orange.600">
-                                  ₱{(order.shipping_fee || 0).toFixed(2)}
-                                </Text>
-                              )}
-                            </Flex>
-                            <Flex justify="space-between" align="center" wrap="wrap">
-                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600">Order Date:</Text>
-                              <Text fontSize={{ base: "xs", md: "sm" }} fontWeight="medium">
-                                {formatDate(order.created_at)}
-                              </Text>
-                            </Flex>
-                            <Box borderTop="1px solid" borderColor="gray.200" pt={2} mt={1}>
-                              <Flex justify="space-between" align="center">
-                                <Text fontSize={{ base: "xs", md: "sm" }} color="gray.700" fontWeight="bold">Grand Total:</Text>
-                                <Text fontSize={{ base: "md", md: "lg" }} fontWeight="bold" color="blue.700">
-                                  ₱{((order.total_amount || 0) + (order.free_shipping ? 0 : (order.shipping_fee || 0))).toFixed(2)}
-                                </Text>
-                              </Flex>
-                            </Box>
-                          </VStack>
-                        </VStack>
-
-                        {/* Right Section - Status Management */}
-                        <VStack align={{ base: "stretch", md: "stretch", lg: "end" }} gap={{ base: 2, md: 3 }} minW={{ base: "full", md: "250px", lg: "300px" }}>
-                          <VStack align="stretch" gap={{ base: 2, md: 3 }} w="full">
-                            {/* View Order Proofs Button */}
-                            <Box>
-                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={{ base: 1, md: 2 }}>Order Proof:</Text>
-                              <Button
-                                size={{ base: "sm", md: "sm" }}
-                                variant="outline"
-                                onClick={() => {
-                                  navigate(`/admin/orders/${order.id}/proof`);
-                                }}
-                                w="full"
-                                style={{
-                                  backgroundColor: '#ffffff',
-                                  color: order.order_status === 'completed' ? '#3182ce' : '#718096',
-                                  borderColor: order.order_status === 'completed' ? '#3182ce' : '#cbd5e0'
-                                }}
-                                _hover={{
-                                  backgroundColor: order.order_status === 'completed' ? '#ebf8ff' : '#f7fafc'
-                                }}
-                              >
-                                <HStack gap={1}>
-                                  <Icon><FiImage /></Icon>
-                                  <Text fontSize={{ base: "xs", md: "sm" }}>
-                                    {order.order_status === 'completed' ? 'Manage Proofs' : 'View Proofs'}
+                                  <Text fontSize="xs" fontWeight="bold" color="blue.600">
+                                    #{order.order_number}
                                   </Text>
-                                </HStack>
-                              </Button>
-                              {order.order_status !== 'completed' && (
-                                <Text fontSize="2xs" color="orange.600" mt={1}>
-                                  Only completed orders can have proofs
-                                </Text>
-                              )}
-                            </Box>
+                                  <Text fontSize="xs" color="gray.500">
+                                    Qty: {order.quantity}
+                                  </Text>
+                                  <Text fontSize="xs" color="gray.500">
+                                    {formatDate(order.created_at)}
+                                  </Text>
+                                </VStack>
+                              </Table.Cell>
 
-                            {/* Order Status */}
-                            <Box>
-                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={{ base: 1, md: 2 }}>Order Status:</Text>
-                              <SelectRoot
-                                collection={getOrderStatusOptions(order.order_status)}
-                                value={[order.order_status]}
-                                onValueChange={(details) => {
-                                  if (details.value && details.value.length > 0) {
-                                    handleOrderStatusUpdate(order.id, details.value[0] as OrderStatus);
-                                  }
-                                }}
-                                size={{ base: "sm", md: "sm" }}
-                                disabled={updatingOrderId === order.id}
-                              >
-                                <SelectTrigger h={{ base: "36px", md: "40px" }}>
-                                  <SelectValueText />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {getOrderStatusOptions(order.order_status).items.map((option) => (
-                                    <SelectItem key={option.value} item={option.value}>
-                                      <Badge colorScheme={getStatusColor(option.value)} size={{ base: "sm", md: "sm" }}>
-                                        {option.label}
+                              {/* Customer */}
+                              <Table.Cell>
+                                <VStack align="start" gap={0.5}>
+                                  <Text fontSize="sm" fontWeight="medium" color="gray.700">
+                                    {order.user_first_name} {order.user_last_name}
+                                  </Text>
+                                  <Text fontSize="xs" color="gray.500" lineClamp={1}>
+                                    {order.user_email}
+                                  </Text>
+                                  {order.shipping_address && (
+                                    <Text fontSize="xs" color="gray.500" lineClamp={2} mt={1}>
+                                      {order.shipping_address}
+                                    </Text>
+                                  )}
+                                </VStack>
+                              </Table.Cell>
+
+                              {/* Amount */}
+                              <Table.Cell textAlign="right">
+                                <VStack align="end" gap={1}>
+                                  <Text fontSize="sm" fontWeight="bold" color="gray.700">
+                                    ₱{order.total_amount.toFixed(2)}
+                                  </Text>
+                                  {order.free_shipping ? (
+                                    <Badge colorScheme="green" fontSize="2xs">
+                                      FREE SHIPPING
+                                    </Badge>
+                                  ) : order.shipping_fee && order.shipping_fee > 0 ? (
+                                    <Text fontSize="xs" color="orange.600">
+                                      + ₱{order.shipping_fee.toFixed(2)}
+                                    </Text>
+                                  ) : null}
+                                  <Text fontSize="xs" color="blue.700" fontWeight="bold" mt={1} pt={1} borderTop="1px solid" borderColor="gray.200">
+                                    ₱{((order.total_amount || 0) + (order.free_shipping ? 0 : (order.shipping_fee || 0))).toFixed(2)}
+                                  </Text>
+                                </VStack>
+                              </Table.Cell>
+
+                              {/* Order Status */}
+                              <Table.Cell>
+                                <SelectRoot
+                                  collection={getOrderStatusOptions(order.order_status)}
+                                  value={[order.order_status]}
+                                  onValueChange={(details) => {
+                                    console.log('🔵 [SELECT] Order status change triggered:', details);
+                                    if (details.value && details.value.length > 0) {
+                                      handleOrderStatusUpdate(order.id, details.value[0] as OrderStatus);
+                                    }
+                                  }}
+                                  size="xs"
+                                  disabled={updatingOrderId === order.id}
+                                >
+                                  <SelectTrigger>
+                                    <Badge colorScheme={getStatusColor(order.order_status)} size="sm" w="full">
+                                      {formatStatus(order.order_status)}
+                                    </Badge>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {getOrderStatusOptions(order.order_status).items.map((option) => (
+                                      <SelectItem key={option.value} item={option.value}>
+                                        <Badge colorScheme={getStatusColor(option.value)} size="sm">
+                                          {option.label}
+                                        </Badge>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </SelectRoot>
+                              </Table.Cell>
+
+                              {/* Payment Status */}
+                              <Table.Cell>
+                                <VStack align="start" gap={1}>
+                                  <SelectRoot
+                                    collection={getPaymentStatusOptions(order.payment_status)}
+                                    value={[order.payment_status]}
+                                    onValueChange={(details) => {
+                                      if (details.value && details.value.length > 0) {
+                                        handlePaymentStatusUpdate(order.id, details.value[0] as PaymentStatus);
+                                      }
+                                    }}
+                                    size="xs"
+                                    disabled={updatingOrderId === order.id}
+                                  >
+                                    <SelectTrigger>
+                                      <Badge colorScheme={getPaymentStatusColor(order.payment_status)} size="sm" w="full">
+                                        {formatStatus(order.payment_status)}
+                                      </Badge>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {getPaymentStatusOptions(order.payment_status).items.map((option) => (
+                                        <SelectItem key={option.value} item={option.value}>
+                                          <Badge colorScheme={getPaymentStatusColor(option.value)} size="sm">
+                                            {option.label}
+                                          </Badge>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </SelectRoot>
+                                  <Text fontSize="2xs" color="gray.500">
+                                    {formatStatus(order.payment_terms)}
+                                  </Text>
+                                </VStack>
+                              </Table.Cell>
+
+                              {/* Shipment Type */}
+                              <Table.Cell>
+                                <SelectRoot
+                                  collection={createListCollection({ items: [
+                                    { label: 'Delivery', value: 'delivery' },
+                                    { label: 'Pickup', value: 'pickup' }
+                                  ]})}
+                                  value={[order.shipment_type]}
+                                  onValueChange={(details) => {
+                                    if (details.value && details.value.length > 0) {
+                                      handleShipmentTypeUpdate(order.id, details.value[0] as ShipmentType);
+                                    }
+                                  }}
+                                  size="xs"
+                                  disabled={updatingOrderId === order.id}
+                                >
+                                  <SelectTrigger>
+                                    <Badge colorScheme={getShipmentTypeColor(order.shipment_type)} size="sm" w="full">
+                                      {formatStatus(order.shipment_type)}
+                                    </Badge>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem item="delivery">
+                                      <Badge colorScheme="blue" size="sm">
+                                        Delivery
                                       </Badge>
                                     </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </SelectRoot>
-                            </Box>
-
-                            {/* Payment Status */}
-                            <Box>
-                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={{ base: 1, md: 2 }}>Payment Status:</Text>
-                              <SelectRoot
-                                collection={getPaymentStatusOptions(order.payment_status)}
-                                value={[order.payment_status]}
-                                onValueChange={(details) => {
-                                  if (details.value && details.value.length > 0) {
-                                    handlePaymentStatusUpdate(order.id, details.value[0] as PaymentStatus);
-                                  }
-                                }}
-                                size={{ base: "sm", md: "sm" }}
-                                disabled={updatingOrderId === order.id}
-                              >
-                                <SelectTrigger h={{ base: "36px", md: "40px" }}>
-                                  <SelectValueText />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {getPaymentStatusOptions(order.payment_status).items.map((option) => (
-                                    <SelectItem key={option.value} item={option.value}>
-                                      <Badge colorScheme={getPaymentStatusColor(option.value)} size={{ base: "sm", md: "sm" }}>
-                                        {option.label}
+                                    <SelectItem item="pickup">
+                                      <Badge colorScheme="green" size="sm">
+                                        Pickup
                                       </Badge>
                                     </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </SelectRoot>
-                            </Box>
+                                  </SelectContent>
+                                </SelectRoot>
+                              </Table.Cell>
 
-                            {/* Shipment Type */}
-                            <Box>
-                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={{ base: 1, md: 2 }}>Shipment Type:</Text>
-                              <SelectRoot
-                                collection={createListCollection({ items: [
-                                  { label: 'Delivery', value: 'delivery' },
-                                  { label: 'Pickup', value: 'pickup' }
-                                ]})}
-                                value={[order.shipment_type]}
-                                onValueChange={(details) => {
-                                  if (details.value && details.value.length > 0) {
-                                    handleShipmentTypeUpdate(order.id, details.value[0] as ShipmentType);
-                                  }
-                                }}
-                                size={{ base: "sm", md: "sm" }}
-                                disabled={updatingOrderId === order.id}
-                              >
-                                <SelectTrigger h={{ base: "36px", md: "40px" }}>
-                                  <SelectValueText />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem item="delivery">
-                                    <Badge colorScheme="blue" size={{ base: "sm", md: "sm" }}>
-                                      Delivery
-                                    </Badge>
-                                  </SelectItem>
-                                  <SelectItem item="pickup">
-                                    <Badge colorScheme="green" size={{ base: "sm", md: "sm" }}>
-                                      Pickup
-                                    </Badge>
-                                  </SelectItem>
-                                </SelectContent>
-                              </SelectRoot>
-                            </Box>
-
-                            {/* Priority - Display Only */}
-                            <Box>
-                              <Text fontSize={{ base: "xs", md: "sm" }} color="gray.600" mb={{ base: 1, md: 2 }}>Priority:</Text>
-                              <Box py={2}>
-                                <Badge colorScheme={getPriorityColor(order.priority)} size={{ base: "sm", md: "md" }} px={3} py={1}>
+                              {/* Priority */}
+                              <Table.Cell>
+                                <Badge colorScheme={getPriorityColor(order.priority)} size="sm">
                                   {formatStatus(order.priority)}
                                 </Badge>
-                              </Box>
-                            </Box>
+                              </Table.Cell>
 
-                            {updatingOrderId === order.id && (
-                              <HStack justify="center" py={2}>
-                                <Spinner size={{ base: "sm", md: "sm" }} />
-                                <Text fontSize={{ base: "xs", md: "sm" }} color="gray.500">Updating...</Text>
-                              </HStack>
-                            )}
-                          </VStack>
-                        </VStack>
-                      </Flex>
-                    </Box>
-                    );
-                  })}
-                </VStack>
+                              {/* Actions */}
+                              <Table.Cell textAlign="center">
+                                <VStack gap={2}>
+                                  <Button
+                                    size="xs"
+                                    variant="outline"
+                                    onClick={() => navigate(`/admin/orders/${order.id}/proof`)}
+                                    w="full"
+                                    className="admin-order-action-button"
+                                    style={{
+                                      backgroundColor: '#ffffff',
+                                      color: order.order_status === 'completed' ? '#3182ce' : '#718096',
+                                      borderColor: order.order_status === 'completed' ? '#3182ce' : '#cbd5e0',
+                                      borderWidth: '1px',
+                                      borderStyle: 'solid'
+                                    }}
+                                  >
+                                    <Icon fontSize="xs"><FiImage /></Icon>
+                                    <Text fontSize="2xs" ml={1}>Proofs</Text>
+                                  </Button>
+                                  {updatingOrderId === order.id && (
+                                    <Spinner size="xs" color="blue.500" />
+                                  )}
+                                </VStack>
+                              </Table.Cell>
+                            </Table.Row>
+                          );
+                        })}
+                      </Table.Body>
+                    </Table.Root>
+                  </Box>
+                </Box>
               )}
             </VStack>
           </Container>
       </Box>
+
+      {/* Success Modal */}
+      <DialogRoot
+        open={successModal.isOpen}
+        onOpenChange={(details) => {
+          console.log('🎯 [MODAL] onOpenChange called:', details);
+          if (!details.open) {
+            setSuccessModal({
+              isOpen: false,
+              type: null,
+              oldValue: '',
+              newValue: '',
+              orderId: null,
+            });
+          }
+        }}
+      >
+        <DialogBackdrop style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          zIndex: 1400
+        }} />
+        <DialogContent style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          backgroundColor: 'white',
+          borderRadius: '0.5rem',
+          padding: 0,
+          maxWidth: '500px',
+          width: '90%',
+          zIndex: 1401,
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+        }}>
+          <DialogHeader style={{
+            padding: '1.5rem',
+            borderBottom: '1px solid #e2e8f0'
+          }}>
+            <DialogTitle>
+              <HStack gap={2}>
+                <Text fontSize="2xl">✅</Text>
+                <Text>Update Successful</Text>
+              </HStack>
+            </DialogTitle>
+          </DialogHeader>
+          <DialogBody style={{
+            padding: '1.5rem'
+          }}>
+            <VStack align="stretch" gap={4} py={2}>
+              <Box>
+                <Text fontSize="sm" color="gray.600" mb={2}>
+                  Order #{successModal.orderId}
+                </Text>
+                <Text fontSize="md" fontWeight="semibold" mb={3}>
+                  {successModal.type === 'order_status' && 'Order Status Updated'}
+                  {successModal.type === 'payment_status' && 'Payment Status Updated'}
+                  {successModal.type === 'shipment_type' && 'Shipment Type Updated'}
+                </Text>
+              </Box>
+
+              <Box bg="gray.50" p={4} borderRadius="md">
+                <HStack justify="space-between" align="center">
+                  <VStack align="start" gap={1}>
+                    <Text fontSize="xs" color="gray.500">Previous</Text>
+                    <Badge colorScheme={
+                      successModal.type === 'order_status' ? getStatusColor(successModal.oldValue) :
+                      successModal.type === 'payment_status' ? getPaymentStatusColor(successModal.oldValue) :
+                      getShipmentTypeColor(successModal.oldValue)
+                    } size="md">
+                      {formatStatus(successModal.oldValue)}
+                    </Badge>
+                  </VStack>
+
+                  <Text fontSize="2xl" color="gray.400">→</Text>
+
+                  <VStack align="end" gap={1}>
+                    <Text fontSize="xs" color="gray.500">Updated to</Text>
+                    <Badge colorScheme={
+                      successModal.type === 'order_status' ? getStatusColor(successModal.newValue) :
+                      successModal.type === 'payment_status' ? getPaymentStatusColor(successModal.newValue) :
+                      getShipmentTypeColor(successModal.newValue)
+                    } size="md">
+                      {formatStatus(successModal.newValue)}
+                    </Badge>
+                  </VStack>
+                </HStack>
+              </Box>
+
+              <Text fontSize="sm" color="gray.600" textAlign="center">
+                The {successModal.type?.replace('_', ' ')} has been successfully updated.
+              </Text>
+            </VStack>
+          </DialogBody>
+          <DialogFooter style={{
+            padding: '1.5rem',
+            borderTop: '1px solid #e2e8f0'
+          }}>
+            <Button
+              onClick={() => setSuccessModal({
+                isOpen: false,
+                type: null,
+                oldValue: '',
+                newValue: '',
+                orderId: null,
+              })}
+              style={{
+                backgroundColor: '#3182ce',
+                color: 'white',
+                width: '100%',
+                padding: '0.75rem 1.5rem',
+                borderRadius: '0.375rem',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </DialogRoot>
     </Box>
   );
 };

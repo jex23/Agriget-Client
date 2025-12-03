@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box } from '@chakra-ui/react';
+import { Box, Text } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import Profile from '../components/Profile.js';
 import Header from '../components/Header.js';
@@ -13,16 +13,34 @@ import { ROUTES } from '../constants/routes.js';
 const ProfilePage: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const currentUser = authService.getCurrentUser();
-    if (!currentUser) {
-      navigate(ROUTES.LOGIN);
-      return;
-    }
-    setUser(currentUser);
-    fetchCart(currentUser);
+    const initializePage = async () => {
+      // Check if user is authenticated
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) {
+        navigate(ROUTES.LOGIN);
+        return;
+      }
+
+      try {
+        // Fetch fresh user data from API
+        const freshUser = await authService.fetchCurrentUser();
+        setUser(freshUser);
+        await fetchCart(freshUser);
+      } catch (error) {
+        console.error('Failed to fetch user data:', error);
+        // If API fails, fallback to localStorage data
+        setUser(currentUser);
+        await fetchCart(currentUser);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializePage();
   }, [navigate]);
 
   const fetchCart = async (userToCheck?: User | null) => {
@@ -46,27 +64,51 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-  const handleUserUpdate = () => {
-    // Refresh user data from localStorage after profile update
-    const updatedUser = authService.getCurrentUser();
-    setUser(updatedUser);
+  const handleUserUpdate = async () => {
+    // Fetch fresh user data from API after profile update
+    try {
+      const freshUser = await authService.fetchCurrentUser();
+      setUser(freshUser);
+    } catch (error) {
+      console.error('Failed to refresh user data:', error);
+      // If API fails, fallback to localStorage data
+      const updatedUser = authService.getCurrentUser();
+      setUser(updatedUser);
+    }
   };
 
   const getTotalItems = () => {
     return cartItems.reduce((sum, item) => sum + item.quantity, 0);
   };
 
+  if (loading) {
+    return (
+      <Box className="profile-page-container" bg="gray.50" minH="100vh" color="gray.900">
+        <Header
+          user={user}
+          cartItems={0}
+          cartItemsData={[]}
+          onRemoveFromCart={handleRemoveFromCart}
+        />
+        <Box textAlign="center" py={12}>
+          <Text>Loading profile...</Text>
+        </Box>
+        <Footer />
+      </Box>
+    );
+  }
+
   return (
     <Box className="profile-page-container" bg="gray.50" minH="100vh" color="gray.900">
-      <Header 
-        user={user} 
-        cartItems={getTotalItems()} 
+      <Header
+        user={user}
+        cartItems={getTotalItems()}
         cartItemsData={cartItems}
         onRemoveFromCart={handleRemoveFromCart}
       />
-      
+
       <Profile user={user} onUserUpdate={handleUserUpdate} />
-      
+
       <Footer />
     </Box>
   );

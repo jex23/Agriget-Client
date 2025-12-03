@@ -164,30 +164,36 @@
 }
 
 .admin-badge-green {
-  background: #38a169 !important;
+  background: #2f855a !important;
   color: white !important;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-  font-size: 0.75rem;
-  font-weight: 600;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
 }
 
 .admin-badge-blue {
-  background: #3182ce !important;
+  background: #2c5282 !important;
   color: white !important;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-  font-size: 0.75rem;
-  font-weight: 600;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
 }
 
 .admin-badge-orange {
-  background: #ed8936 !important;
+  background: #dd6b20 !important;
   color: white !important;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-  font-size: 0.75rem;
-  font-weight: 600;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
 }
 
 .admin-action-button {
@@ -448,7 +454,8 @@
 .admin-badge-blue,
 .admin-badge-orange {
   display: inline-block;
-  font-weight: 600;
+  font-weight: 700;
+  color: white !important;
 }
 
 /* Stat number highlighting */

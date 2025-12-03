@@ -103,15 +103,25 @@ const Product: React.FC<ProductProps> = ({
 
     setIsLoading(true);
     try {
-      // Add to cart with current local quantity
+      // First, remove the item from cart if it exists to start fresh
+      // This ensures Buy Now always starts with a fresh quantity, not adding to existing
+      try {
+        await apiCartService.removeFromCart(product.id);
+      } catch (error) {
+        // Item might not be in cart, that's okay
+        console.log('Item not in cart or failed to remove, will add fresh');
+      }
+
+      // Add to cart with fresh quantity
       await apiCartService.addToCart({
         product_id: product.id,
         quantity: quantityToAdd
       });
       onCartUpdate?.();
 
-      // Navigate to cart for immediate checkout
-      navigate(ROUTES.CART);
+      // Navigate to cart for immediate checkout with Buy Now mode
+      // Pass the product ID to show only this item in cart
+      navigate(ROUTES.CART, { state: { buyNowProductId: product.id } });
     } catch (error) {
       console.error('Failed to add to cart:', error);
     } finally {

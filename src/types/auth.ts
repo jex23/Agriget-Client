@@ -26,6 +26,7 @@ export interface User {
   last_name: string;
   role: string;
   name?: string; // Computed field for display (first_name + last_name)
+  archive?: 0 | 1;
 }
 
 export interface AuthState {
@@ -68,6 +69,7 @@ export interface UserUpdate {
   gender?: string;
   email?: string;
   password?: string;
+  archive?: 0 | 1;
 }
 
 export interface ChangePasswordRequest {

@@ -6,9 +6,19 @@ import {
   VStack,
   Text,
   Heading,
-  Link,
-  IconButton
+  IconButton,
+  HStack
 } from '@chakra-ui/react';
+import {
+  DialogRoot,
+  DialogBackdrop,
+  DialogContent,
+  DialogHeader,
+  DialogBody,
+  DialogTitle,
+  DialogCloseTrigger,
+  DialogPositioner
+} from '@chakra-ui/react/dialog';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import type { LoginCredentials } from '../types/auth.js';
 import authService from '../services/authService.js';
@@ -25,7 +35,20 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [generalError, setGeneralError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  
+
+  // Forgot Password Modal State
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
+  const [forgotPasswordStep, setForgotPasswordStep] = useState(1); // 1 = Email, 2 = OTP, 3 = New Password
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [forgotPasswordOtp, setForgotPasswordOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [forgotPasswordError, setForgotPasswordError] = useState('');
+  const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState('');
+  const [isForgotPasswordLoading, setIsForgotPasswordLoading] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+
   const navigate = useNavigate();
 
   const validateForm = (): boolean => {
@@ -52,7 +75,7 @@ const Login: React.FC = () => {
     setIsLoading(true);
     try {
       const authResponse = await authService.login(credentials);
-      
+
       // Role-based navigation
       if (authResponse.user.role === 'admin') {
         navigate(ROUTES.ADMIN);
@@ -78,6 +101,121 @@ const Login: React.FC = () => {
         ...prev,
         [field]: undefined
       }));
+    }
+  };
+
+  // Forgot Password Handlers
+  const handleForgotPasswordOpen = () => {
+    setIsForgotPasswordOpen(true);
+    setForgotPasswordStep(1);
+    setForgotPasswordEmail('');
+    setForgotPasswordOtp('');
+    setNewPassword('');
+    setConfirmNewPassword('');
+    setForgotPasswordError('');
+    setForgotPasswordSuccess('');
+  };
+
+  const handleForgotPasswordClose = () => {
+    setIsForgotPasswordOpen(false);
+    setForgotPasswordStep(1);
+    setForgotPasswordEmail('');
+    setForgotPasswordOtp('');
+    setNewPassword('');
+    setConfirmNewPassword('');
+    setForgotPasswordError('');
+    setForgotPasswordSuccess('');
+  };
+
+  const handleRequestPasswordResetOtp = async () => {
+    setForgotPasswordError('');
+    setForgotPasswordSuccess('');
+
+    if (!forgotPasswordEmail) {
+      setForgotPasswordError(VALIDATION_MESSAGES.EMAIL_REQUIRED);
+      return;
+    }
+
+    if (!VALIDATION_RULES.EMAIL_REGEX.test(forgotPasswordEmail)) {
+      setForgotPasswordError(VALIDATION_MESSAGES.EMAIL_INVALID);
+      return;
+    }
+
+    setIsForgotPasswordLoading(true);
+    try {
+      await authService.requestOtp(forgotPasswordEmail, 'forgot_password');
+      setForgotPasswordSuccess('OTP sent successfully! Please check your email.');
+      setForgotPasswordStep(2);
+    } catch (error) {
+      setForgotPasswordError(error instanceof Error ? error.message : 'Failed to send OTP');
+    } finally {
+      setIsForgotPasswordLoading(false);
+    }
+  };
+
+  const handleVerifyPasswordResetOtp = async () => {
+    setForgotPasswordError('');
+    setForgotPasswordSuccess('');
+
+    if (!forgotPasswordOtp) {
+      setForgotPasswordError('OTP code is required');
+      return;
+    }
+
+    if (forgotPasswordOtp.length !== 6) {
+      setForgotPasswordError('OTP must be 6 digits');
+      return;
+    }
+
+    setIsForgotPasswordLoading(true);
+    try {
+      await authService.verifyOtp(forgotPasswordEmail, forgotPasswordOtp, 'forgot_password');
+      setForgotPasswordSuccess('OTP verified! Please enter your new password.');
+      setForgotPasswordStep(3);
+    } catch (error) {
+      setForgotPasswordError(error instanceof Error ? error.message : 'Invalid OTP code');
+    } finally {
+      setIsForgotPasswordLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    setForgotPasswordError('');
+    setForgotPasswordSuccess('');
+
+    if (!newPassword) {
+      setForgotPasswordError(VALIDATION_MESSAGES.PASSWORD_REQUIRED);
+      return;
+    }
+
+    if (newPassword.length < VALIDATION_RULES.PASSWORD_MIN_LENGTH) {
+      setForgotPasswordError(VALIDATION_MESSAGES.PASSWORD_MIN_LENGTH);
+      return;
+    }
+
+    if (!confirmNewPassword) {
+      setForgotPasswordError('Please confirm your new password');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setForgotPasswordError(VALIDATION_MESSAGES.PASSWORDS_DONT_MATCH);
+      return;
+    }
+
+    setIsForgotPasswordLoading(true);
+    try {
+      await authService.resetPassword(forgotPasswordEmail, forgotPasswordOtp, newPassword);
+      setForgotPasswordSuccess('Password reset successfully! You can now login with your new password.');
+
+      // Close modal after 2 seconds
+      setTimeout(() => {
+        handleForgotPasswordClose();
+      }, 2000);
+    } catch (error) {
+      setForgotPasswordError(error instanceof Error ? error.message : 'Failed to reset password');
+    } finally {
+      setIsForgotPasswordLoading(false);
     }
   };
 
@@ -151,6 +289,33 @@ const Login: React.FC = () => {
                 )}
               </Box>
 
+              {/* Forgot Password Link */}
+              <Box w="full" textAlign="right">
+                <Button
+                  variant="plain"
+                  size="sm"
+                  onClick={handleForgotPasswordOpen}
+                  color="#3182ce"
+                  _hover={{
+                    textDecoration: "underline",
+                    bg: "transparent"
+                  }}
+                  bg="transparent"
+                  border="none"
+                  p={0}
+                  h="auto"
+                  fontWeight="normal"
+                  style={{
+                    color: '#3182ce',
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    boxShadow: 'none'
+                  }}
+                >
+                  Forgot Password?
+                </Button>
+              </Box>
+
               <Button
                 className="login-submit-button"
                 type="submit"
@@ -165,15 +330,268 @@ const Login: React.FC = () => {
           <Box className="login-register-link">
             <Text className="login-register-text">
               Don't have an account?{' '}
-              <RouterLink to={ROUTES.REGISTER}>
-                <Link className="login-register-link-text">
-                  Register here
-                </Link>
+              <RouterLink to={ROUTES.REGISTER} className="login-register-link-text">
+                Register here
               </RouterLink>
             </Text>
           </Box>
         </VStack>
       </Box>
+
+      {/* Forgot Password Dialog */}
+      <DialogRoot
+        open={isForgotPasswordOpen}
+        onOpenChange={(e) => !e.open && handleForgotPasswordClose()}
+        placement="center"
+      >
+        <DialogBackdrop bg="blackAlpha.600" />
+        <DialogPositioner>
+          <DialogContent
+            maxW="500px"
+            p={6}
+            bg="white"
+            color="gray.800"
+            style={{
+              backgroundColor: '#ffffff',
+              color: '#2d3748'
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle fontSize="xl" fontWeight="bold" color="gray.800">
+                Reset Password
+              </DialogTitle>
+            </DialogHeader>
+            <DialogCloseTrigger onClick={handleForgotPasswordClose} />
+          <DialogBody>
+            <VStack gap={4} mt={4}>
+              {forgotPasswordError && (
+                <Box bg="red.50" p={3} borderRadius="md" border="1px solid" borderColor="red.200" width="100%">
+                  <Text color="red.700" fontSize="sm">
+                    {forgotPasswordError}
+                  </Text>
+                </Box>
+              )}
+
+              {forgotPasswordSuccess && (
+                <Box bg="green.50" p={3} borderRadius="md" border="1px solid" borderColor="green.200" width="100%">
+                  <Text color="green.700" fontSize="sm">
+                    {forgotPasswordSuccess}
+                  </Text>
+                </Box>
+              )}
+
+              {/* Step 1: Email Input */}
+              {forgotPasswordStep === 1 && (
+                <VStack gap={4} width="100%">
+                  <Text fontSize="sm" color="gray.600">
+                    Enter your email address and we'll send you a verification code to reset your password.
+                  </Text>
+                  <Box w="full">
+                    <Text mb={2} fontWeight="medium" fontSize="sm" color="gray.700">Email Address</Text>
+                    <Input
+                      type="email"
+                      value={forgotPasswordEmail}
+                      onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                      placeholder="Enter your email address"
+                      bg="white"
+                      borderColor="gray.300"
+                      color="gray.800"
+                      _placeholder={{ color: "gray.400" }}
+                      style={{
+                        backgroundColor: '#ffffff',
+                        color: '#2d3748',
+                        borderColor: '#cbd5e0'
+                      }}
+                    />
+                  </Box>
+                  <Button
+                    onClick={handleRequestPasswordResetOtp}
+                    width="full"
+                    bg="#3182ce"
+                    color="white"
+                    _hover={{ bg: "#2c5282" }}
+                    loading={isForgotPasswordLoading}
+                    style={{
+                      backgroundColor: '#3182ce',
+                      color: '#ffffff'
+                    }}
+                  >
+                    {isForgotPasswordLoading ? 'Sending...' : 'Send Verification Code'}
+                  </Button>
+                </VStack>
+              )}
+
+              {/* Step 2: OTP Verification */}
+              {forgotPasswordStep === 2 && (
+                <VStack gap={4} width="100%">
+                  <Text fontSize="sm" color="gray.600">
+                    Enter the 6-digit verification code sent to {forgotPasswordEmail}
+                  </Text>
+                  <Box w="full">
+                    <Text mb={2} fontWeight="medium" fontSize="sm" color="gray.700">Verification Code</Text>
+                    <Input
+                      type="text"
+                      value={forgotPasswordOtp}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                        setForgotPasswordOtp(value);
+                      }}
+                      placeholder="Enter 6-digit code"
+                      maxLength={6}
+                      textAlign="center"
+                      fontSize="2xl"
+                      letterSpacing="widest"
+                      bg="white"
+                      borderColor="gray.300"
+                      color="gray.800"
+                      _placeholder={{ color: "gray.400" }}
+                      style={{
+                        backgroundColor: '#ffffff',
+                        color: '#2d3748',
+                        borderColor: '#cbd5e0'
+                      }}
+                    />
+                  </Box>
+                  <HStack gap={3} width="100%">
+                    <Button
+                      variant="outline"
+                      onClick={() => setForgotPasswordStep(1)}
+                      width="50%"
+                      borderColor="#3182ce"
+                      color="#3182ce"
+                      _hover={{ bg: "#edf2f7" }}
+                      style={{
+                        borderColor: '#3182ce',
+                        color: '#3182ce',
+                        backgroundColor: 'transparent'
+                      }}
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      onClick={handleVerifyPasswordResetOtp}
+                      width="50%"
+                      bg="#3182ce"
+                      color="white"
+                      _hover={{ bg: "#2c5282" }}
+                      loading={isForgotPasswordLoading}
+                      style={{
+                        backgroundColor: '#3182ce',
+                        color: '#ffffff'
+                      }}
+                    >
+                      {isForgotPasswordLoading ? 'Verifying...' : 'Verify Code'}
+                    </Button>
+                  </HStack>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRequestPasswordResetOtp}
+                    disabled={isForgotPasswordLoading}
+                    color="#3182ce"
+                    _hover={{ bg: "#edf2f7" }}
+                    style={{
+                      color: '#3182ce'
+                    }}
+                  >
+                    Resend Code
+                  </Button>
+                </VStack>
+              )}
+
+              {/* Step 3: New Password */}
+              {forgotPasswordStep === 3 && (
+                  <VStack gap={4} width="100%">
+                    <Text fontSize="sm" color="gray.600">
+                      Enter your new password
+                    </Text>
+                    <Box w="full">
+                      <Text mb={2} fontWeight="medium" fontSize="sm" color="gray.700">New Password</Text>
+                      <Box position="relative">
+                        <Input
+                          type={showNewPassword ? "text" : "password"}
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Enter new password"
+                          pr={12}
+                          bg="white"
+                          borderColor="gray.300"
+                          color="gray.800"
+                          _placeholder={{ color: "gray.400" }}
+                          style={{
+                            backgroundColor: '#ffffff',
+                            color: '#2d3748',
+                            borderColor: '#cbd5e0'
+                          }}
+                        />
+                        <IconButton
+                          position="absolute"
+                          right={2}
+                          top="50%"
+                          transform="translateY(-50%)"
+                          aria-label={showNewPassword ? "Hide password" : "Show password"}
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                        >
+                          {showNewPassword ? "👁️" : "👁️‍🗨️"}
+                        </IconButton>
+                      </Box>
+                    </Box>
+                    <Box w="full">
+                      <Text mb={2} fontWeight="medium" fontSize="sm" color="gray.700">Confirm New Password</Text>
+                      <Box position="relative">
+                        <Input
+                          type={showConfirmNewPassword ? "text" : "password"}
+                          value={confirmNewPassword}
+                          onChange={(e) => setConfirmNewPassword(e.target.value)}
+                          placeholder="Confirm new password"
+                          pr={12}
+                          bg="white"
+                          borderColor="gray.300"
+                          color="gray.800"
+                          _placeholder={{ color: "gray.400" }}
+                          style={{
+                            backgroundColor: '#ffffff',
+                            color: '#2d3748',
+                            borderColor: '#cbd5e0'
+                          }}
+                        />
+                        <IconButton
+                          position="absolute"
+                          right={2}
+                          top="50%"
+                          transform="translateY(-50%)"
+                          aria-label={showConfirmNewPassword ? "Hide password" : "Show password"}
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                        >
+                          {showConfirmNewPassword ? "👁️" : "👁️‍🗨️"}
+                        </IconButton>
+                      </Box>
+                    </Box>
+                    <Button
+                      onClick={handleResetPassword}
+                      width="full"
+                      bg="#3182ce"
+                      color="white"
+                      _hover={{ bg: "#2c5282" }}
+                      loading={isForgotPasswordLoading}
+                      style={{
+                        backgroundColor: '#3182ce',
+                        color: '#ffffff'
+                      }}
+                    >
+                      {isForgotPasswordLoading ? 'Resetting...' : 'Reset Password'}
+                    </Button>
+                  </VStack>
+                )}
+              </VStack>
+            </DialogBody>
+          </DialogContent>
+        </DialogPositioner>
+      </DialogRoot>
     </Box>
   );
 };

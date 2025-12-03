@@ -9,7 +9,10 @@ import {
   HStack,
   Flex,
   SimpleGrid,
-  Badge
+  Badge,
+  Tabs,
+  Spinner,
+  Center
 } from '@chakra-ui/react';
 import {
   SelectContent,
@@ -32,6 +35,9 @@ import { ROUTES } from '../constants/routes.js';
 import { API_ENDPOINTS } from '../constants/api.js';
 import AdminHeader from '../components/AdminHeader.js';
 import AdminSidebar from '../components/AdminSidebar.js';
+import LineChart from '../components/LineChart.js';
+import analyticsService from '../services/analyticsService.js';
+import type { SalesAnalyticsResponse } from '../types/analytics.js';
 import './Admin.css';
 
 const Admin: React.FC = () => {
@@ -59,6 +65,18 @@ const Admin: React.FC = () => {
   const [isHovered, setIsHovered] = useState(false);
   const [salesPeriod, setSalesPeriod] = useState<'day' | 'week' | 'month' | 'year'>('month');
   const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [allUsers, setAllUsers] = useState<UserResponse[]>([]);
+  const [analyticsTab, setAnalyticsTab] = useState<'revenue' | 'orders' | 'customers'>('revenue');
+  const [analyticsData, setAnalyticsData] = useState<{
+    week: SalesAnalyticsResponse | null;
+    month: SalesAnalyticsResponse | null;
+    year: SalesAnalyticsResponse | null;
+  }>({
+    week: null,
+    month: null,
+    year: null,
+  });
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const navigate = useNavigate();
 
   const salesPeriodOptions = createListCollection({
@@ -171,13 +189,37 @@ const Admin: React.FC = () => {
       navigate(ROUTES.HOME);
       return;
     }
-    
+
     setUser(currentUser);
     setIsLoading(false);
-    
+
     // Fetch dashboard data
     fetchDashboardData();
+    fetchAnalyticsData();
   }, [navigate]);
+
+  const fetchAnalyticsData = async () => {
+    try {
+      setAnalyticsLoading(true);
+
+      // Fetch analytics for all three periods in parallel
+      const [weekData, monthData, yearData] = await Promise.all([
+        analyticsService.getPeriodAnalytics('week').catch(() => null),
+        analyticsService.getPeriodAnalytics('month').catch(() => null),
+        analyticsService.getPeriodAnalytics('year').catch(() => null),
+      ]);
+
+      setAnalyticsData({
+        week: weekData,
+        month: monthData,
+        year: yearData,
+      });
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -190,8 +232,9 @@ const Admin: React.FC = () => {
         adminUserService.getAllUsers().catch(() => [])
       ]);
 
-      // Store all orders for sales report filtering
+      // Store all orders and users for analytics
       setAllOrders(orders);
+      setAllUsers(users);
 
       // Calculate statistics
       const totalRevenue = orders.reduce((sum, order) => {
@@ -390,6 +433,239 @@ const Admin: React.FC = () => {
     };
   };
 
+  // Analytics data processing functions
+  const getRevenueAnalytics = (period: 'week' | 'month' | 'year' = 'month') => {
+    const now = new Date();
+    let dataPoints: { label: string; value: number }[] = [];
+
+    if (period === 'week') {
+      // Last 7 days
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        date.setHours(0, 0, 0, 0);
+
+        const nextDate = new Date(date);
+        nextDate.setDate(nextDate.getDate() + 1);
+
+        const dayRevenue = allOrders
+          .filter(order => {
+            const orderDate = new Date(order.created_at);
+            return orderDate >= date && orderDate < nextDate &&
+                   order.order_status === 'completed' && order.payment_status === 'paid';
+          })
+          .reduce((sum, order) => {
+            return sum + order.total_amount + (order.free_shipping ? 0 : (order.shipping_fee || 0));
+          }, 0);
+
+        dataPoints.push({
+          label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          value: dayRevenue
+        });
+      }
+    } else if (period === 'month') {
+      // Last 30 days
+      for (let i = 29; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        date.setHours(0, 0, 0, 0);
+
+        const nextDate = new Date(date);
+        nextDate.setDate(nextDate.getDate() + 1);
+
+        const dayRevenue = allOrders
+          .filter(order => {
+            const orderDate = new Date(order.created_at);
+            return orderDate >= date && orderDate < nextDate &&
+                   order.order_status === 'completed' && order.payment_status === 'paid';
+          })
+          .reduce((sum, order) => {
+            return sum + order.total_amount + (order.free_shipping ? 0 : (order.shipping_fee || 0));
+          }, 0);
+
+        // Show every 5th day to avoid crowding
+        if (i % 5 === 0 || i === 29) {
+          dataPoints.push({
+            label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            value: dayRevenue
+          });
+        }
+      }
+    } else if (period === 'year') {
+      // Last 12 months
+      for (let i = 11; i >= 0; i--) {
+        const date = new Date(now);
+        date.setMonth(date.getMonth() - i);
+        date.setDate(1);
+        date.setHours(0, 0, 0, 0);
+
+        const nextMonth = new Date(date);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+        const monthRevenue = allOrders
+          .filter(order => {
+            const orderDate = new Date(order.created_at);
+            return orderDate >= date && orderDate < nextMonth &&
+                   order.order_status === 'completed' && order.payment_status === 'paid';
+          })
+          .reduce((sum, order) => {
+            return sum + order.total_amount + (order.free_shipping ? 0 : (order.shipping_fee || 0));
+          }, 0);
+
+        dataPoints.push({
+          label: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+          value: monthRevenue
+        });
+      }
+    }
+
+    return dataPoints;
+  };
+
+  const getOrdersAnalytics = (period: 'week' | 'month' | 'year' = 'month') => {
+    const now = new Date();
+    let dataPoints: { label: string; value: number }[] = [];
+
+    if (period === 'week') {
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        date.setHours(0, 0, 0, 0);
+
+        const nextDate = new Date(date);
+        nextDate.setDate(nextDate.getDate() + 1);
+
+        const dayOrders = allOrders.filter(order => {
+          const orderDate = new Date(order.created_at);
+          return orderDate >= date && orderDate < nextDate;
+        }).length;
+
+        dataPoints.push({
+          label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          value: dayOrders
+        });
+      }
+    } else if (period === 'month') {
+      for (let i = 29; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        date.setHours(0, 0, 0, 0);
+
+        const nextDate = new Date(date);
+        nextDate.setDate(nextDate.getDate() + 1);
+
+        const dayOrders = allOrders.filter(order => {
+          const orderDate = new Date(order.created_at);
+          return orderDate >= date && orderDate < nextDate;
+        }).length;
+
+        if (i % 5 === 0 || i === 29) {
+          dataPoints.push({
+            label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            value: dayOrders
+          });
+        }
+      }
+    } else if (period === 'year') {
+      for (let i = 11; i >= 0; i--) {
+        const date = new Date(now);
+        date.setMonth(date.getMonth() - i);
+        date.setDate(1);
+        date.setHours(0, 0, 0, 0);
+
+        const nextMonth = new Date(date);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+        const monthOrders = allOrders.filter(order => {
+          const orderDate = new Date(order.created_at);
+          return orderDate >= date && orderDate < nextMonth;
+        }).length;
+
+        dataPoints.push({
+          label: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+          value: monthOrders
+        });
+      }
+    }
+
+    return dataPoints;
+  };
+
+  const getCustomerAnalytics = (period: 'week' | 'month' | 'year' = 'month') => {
+    const now = new Date();
+    let dataPoints: { label: string; value: number }[] = [];
+
+    if (period === 'week') {
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        date.setHours(0, 0, 0, 0);
+
+        const nextDate = new Date(date);
+        nextDate.setDate(nextDate.getDate() + 1);
+
+        const dayCustomers = allUsers.filter(user => {
+          const userDate = new Date(user.created_at);
+          return userDate >= date && userDate < nextDate;
+        }).length;
+
+        // Cumulative count
+        const totalCustomers = allUsers.filter(user => {
+          const userDate = new Date(user.created_at);
+          return userDate < nextDate;
+        }).length;
+
+        dataPoints.push({
+          label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          value: totalCustomers
+        });
+      }
+    } else if (period === 'month') {
+      for (let i = 29; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        date.setHours(0, 0, 0, 0);
+
+        const nextDate = new Date(date);
+        nextDate.setDate(nextDate.getDate() + 1);
+
+        const totalCustomers = allUsers.filter(user => {
+          const userDate = new Date(user.created_at);
+          return userDate < nextDate;
+        }).length;
+
+        if (i % 5 === 0 || i === 29) {
+          dataPoints.push({
+            label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            value: totalCustomers
+          });
+        }
+      }
+    } else if (period === 'year') {
+      for (let i = 11; i >= 0; i--) {
+        const date = new Date(now);
+        date.setMonth(date.getMonth() - i);
+        date.setDate(1);
+        date.setHours(0, 0, 0, 0);
+
+        const nextMonth = new Date(date);
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+        const totalCustomers = allUsers.filter(user => {
+          const userDate = new Date(user.created_at);
+          return userDate < nextMonth;
+        }).length;
+
+        dataPoints.push({
+          label: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+          value: totalCustomers
+        });
+      }
+    }
+
+    return dataPoints;
+  };
+
   if (isLoading) {
     return (
       <Box display="flex" alignItems="center" justifyContent="center" minHeight="100vh">
@@ -433,6 +709,379 @@ const Admin: React.FC = () => {
                 <Text className="admin-subtitle">
                   Welcome back, {user.first_name}! Here's what's happening with your business today.
                 </Text>
+              </Box>
+
+              {/* Analytics Dashboard */}
+              <Box className="admin-section" bg="white" p={6} borderRadius="lg" shadow="md">
+                <Flex justify="space-between" align="center" mb={6} wrap="wrap" gap={4}>
+                  <Heading size="lg" color="blue.700">
+                    📈 Analytics Dashboard
+                  </Heading>
+                  <HStack gap={3}>
+                    <Button
+                      size="sm"
+                      variant={analyticsTab === 'revenue' ? 'solid' : 'outline'}
+                      colorScheme="blue"
+                      onClick={() => setAnalyticsTab('revenue')}
+                    >
+                      Revenue
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={analyticsTab === 'orders' ? 'solid' : 'outline'}
+                      colorScheme="blue"
+                      onClick={() => setAnalyticsTab('orders')}
+                    >
+                      Orders
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={analyticsTab === 'customers' ? 'solid' : 'outline'}
+                      colorScheme="blue"
+                      onClick={() => setAnalyticsTab('customers')}
+                    >
+                      Products
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={fetchAnalyticsData}
+                      isLoading={analyticsLoading}
+                    >
+                      🔄 Refresh
+                    </Button>
+                  </HStack>
+                </Flex>
+
+                {/* Analytics Charts */}
+                {analyticsLoading ? (
+                  <Center py={20}>
+                    <VStack>
+                      <Spinner size="xl" color="blue.500" />
+                      <Text color="gray.600">Loading analytics...</Text>
+                    </VStack>
+                  </Center>
+                ) : (
+                  <SimpleGrid columns={{ base: 1, lg: 3 }} gap={6}>
+                    {/* Week View */}
+                    <Box bg="gray.50" p={5} borderRadius="lg" border="1px solid" borderColor="gray.200">
+                      <VStack align="stretch" gap={4}>
+                        <HStack justify="space-between">
+                          <VStack align="start" gap={0}>
+                            <Text fontSize="sm" fontWeight="semibold" color="gray.700">Last 7 Days</Text>
+                            <Text fontSize="xs" color="gray.500">Daily breakdown</Text>
+                          </VStack>
+                          {analyticsTab === 'revenue' && analyticsData.week && (
+                            <Text fontSize="xl" fontWeight="bold" color="blue.600">
+                              ₱{analyticsData.week.total_revenue.toLocaleString()}
+                            </Text>
+                          )}
+                          {analyticsTab === 'orders' && analyticsData.week && (
+                            <Text fontSize="xl" fontWeight="bold" color="blue.600">
+                              {analyticsData.week.total_orders} orders
+                            </Text>
+                          )}
+                          {analyticsTab === 'customers' && analyticsData.week && (
+                            <Text fontSize="xl" fontWeight="bold" color="blue.600">
+                              {analyticsData.week.total_products_sold.toFixed(0)} products
+                            </Text>
+                          )}
+                        </HStack>
+                        <Box h="250px">
+                          {analyticsTab === 'revenue' && analyticsData.week && (
+                            <LineChart
+                              data={analyticsData.week.order_status_breakdown.map((item, idx) => ({
+                                label: item.status.substring(0, 3),
+                                value: item.total_revenue
+                              }))}
+                              color="#3182ce"
+                              height={250}
+                              valuePrefix="₱"
+                              title="Revenue by Status"
+                            />
+                          )}
+                          {analyticsTab === 'orders' && analyticsData.week && (
+                            <LineChart
+                              data={analyticsData.week.order_status_breakdown.map((item, idx) => ({
+                                label: item.status.substring(0, 3),
+                                value: item.count
+                              }))}
+                              color="#805ad5"
+                              height={250}
+                              title="Orders by Status"
+                            />
+                          )}
+                          {analyticsTab === 'customers' && analyticsData.week && (
+                            <LineChart
+                              data={analyticsData.week.products_sales.slice(0, 5).map((item, idx) => ({
+                                label: item.product_name.substring(0, 10),
+                                value: item.total_quantity_sold
+                              }))}
+                              color="#38a169"
+                              height={250}
+                              title="Top 5 Products"
+                            />
+                          )}
+                        </Box>
+                      </VStack>
+                    </Box>
+
+                    {/* Month View */}
+                    <Box bg="blue.50" p={5} borderRadius="lg" border="2px solid" borderColor="blue.200">
+                      <VStack align="stretch" gap={4}>
+                        <HStack justify="space-between">
+                          <VStack align="start" gap={0}>
+                            <Text fontSize="sm" fontWeight="semibold" color="blue.800">Last 30 Days</Text>
+                            <Text fontSize="xs" color="blue.600">Monthly trend</Text>
+                          </VStack>
+                          {analyticsTab === 'revenue' && analyticsData.month && (
+                            <Text fontSize="xl" fontWeight="bold" color="blue.700">
+                              ₱{analyticsData.month.total_revenue.toLocaleString()}
+                            </Text>
+                          )}
+                          {analyticsTab === 'orders' && analyticsData.month && (
+                            <Text fontSize="xl" fontWeight="bold" color="blue.700">
+                              {analyticsData.month.total_orders} orders
+                            </Text>
+                          )}
+                          {analyticsTab === 'customers' && analyticsData.month && (
+                            <Text fontSize="xl" fontWeight="bold" color="blue.700">
+                              {analyticsData.month.total_products_sold.toFixed(0)} products
+                            </Text>
+                          )}
+                        </HStack>
+                        <Box h="250px">
+                          {analyticsTab === 'revenue' && analyticsData.month && (
+                            <LineChart
+                              data={analyticsData.month.order_status_breakdown.map((item) => ({
+                                label: item.status.substring(0, 3),
+                                value: item.total_revenue
+                              }))}
+                              color="#2c5282"
+                              height={250}
+                              valuePrefix="₱"
+                              title="Revenue by Status"
+                            />
+                          )}
+                          {analyticsTab === 'orders' && analyticsData.month && (
+                            <LineChart
+                              data={analyticsData.month.order_status_breakdown.map((item) => ({
+                                label: item.status.substring(0, 3),
+                                value: item.count
+                              }))}
+                              color="#6b46c1"
+                              height={250}
+                              title="Orders by Status"
+                            />
+                          )}
+                          {analyticsTab === 'customers' && analyticsData.month && (
+                            <LineChart
+                              data={analyticsData.month.products_sales.slice(0, 5).map((item) => ({
+                                label: item.product_name.substring(0, 10),
+                                value: item.total_quantity_sold
+                              }))}
+                              color="#2f855a"
+                              height={250}
+                              title="Top 5 Products"
+                            />
+                          )}
+                        </Box>
+                      </VStack>
+                    </Box>
+
+                    {/* Year View */}
+                    <Box bg="gray.50" p={5} borderRadius="lg" border="1px solid" borderColor="gray.200">
+                      <VStack align="stretch" gap={4}>
+                        <HStack justify="space-between">
+                          <VStack align="start" gap={0}>
+                            <Text fontSize="sm" fontWeight="semibold" color="gray.700">Last 12 Months</Text>
+                            <Text fontSize="xs" color="gray.500">Yearly overview</Text>
+                          </VStack>
+                          {analyticsTab === 'revenue' && analyticsData.year && (
+                            <Text fontSize="xl" fontWeight="bold" color="blue.600">
+                              ₱{analyticsData.year.total_revenue.toLocaleString()}
+                            </Text>
+                          )}
+                          {analyticsTab === 'orders' && analyticsData.year && (
+                            <Text fontSize="xl" fontWeight="bold" color="blue.600">
+                              {analyticsData.year.total_orders} orders
+                            </Text>
+                          )}
+                          {analyticsTab === 'customers' && analyticsData.year && (
+                            <Text fontSize="xl" fontWeight="bold" color="blue.600">
+                              {analyticsData.year.total_products_sold.toFixed(0)} products
+                            </Text>
+                          )}
+                        </HStack>
+                        <Box h="250px">
+                          {analyticsTab === 'revenue' && analyticsData.year && (
+                            <LineChart
+                              data={analyticsData.year.order_status_breakdown.map((item) => ({
+                                label: item.status.substring(0, 3),
+                                value: item.total_revenue
+                              }))}
+                              color="#3182ce"
+                              height={250}
+                              valuePrefix="₱"
+                              title="Revenue by Status"
+                            />
+                          )}
+                          {analyticsTab === 'orders' && analyticsData.year && (
+                            <LineChart
+                              data={analyticsData.year.order_status_breakdown.map((item) => ({
+                                label: item.status.substring(0, 3),
+                                value: item.count
+                              }))}
+                              color="#805ad5"
+                              height={250}
+                              title="Orders by Status"
+                            />
+                          )}
+                          {analyticsTab === 'customers' && analyticsData.year && (
+                            <LineChart
+                              data={analyticsData.year.products_sales.slice(0, 5).map((item) => ({
+                                label: item.product_name.substring(0, 10),
+                                value: item.total_quantity_sold
+                              }))}
+                              color="#38a169"
+                              height={250}
+                              title="Top 5 Products"
+                            />
+                          )}
+                        </Box>
+                      </VStack>
+                    </Box>
+                  </SimpleGrid>
+                )}
+
+                {/* Chart Legend */}
+                {!analyticsLoading && (
+                  <Box mt={6} p={4} bg="blue.50" borderRadius="lg" border="1px solid" borderColor="blue.200">
+                    <VStack gap={3} align="start">
+                      <HStack gap={2}>
+                        <Text fontSize="sm" fontWeight="bold" color="blue.800">📊 Chart Label Legend</Text>
+                      </HStack>
+                      <SimpleGrid columns={{ base: 2, md: 5 }} gap={3} width="100%">
+                        <HStack gap={2}>
+                          <Badge colorScheme="orange" fontSize="xs" fontWeight="bold">pen</Badge>
+                          <Text fontSize="xs" color="gray.700">Pending</Text>
+                        </HStack>
+                        <HStack gap={2}>
+                          <Badge colorScheme="blue" fontSize="xs" fontWeight="bold">pro</Badge>
+                          <Text fontSize="xs" color="gray.700">Processing</Text>
+                        </HStack>
+                        <HStack gap={2}>
+                          <Badge colorScheme="purple" fontSize="xs" fontWeight="bold">on_</Badge>
+                          <Text fontSize="xs" color="gray.700">On Delivery</Text>
+                        </HStack>
+                        <HStack gap={2}>
+                          <Badge colorScheme="green" fontSize="xs" fontWeight="bold">com</Badge>
+                          <Text fontSize="xs" color="gray.700">Completed</Text>
+                        </HStack>
+                        <HStack gap={2}>
+                          <Badge colorScheme="red" fontSize="xs" fontWeight="bold">can</Badge>
+                          <Text fontSize="xs" color="gray.700">Canceled</Text>
+                        </HStack>
+                      </SimpleGrid>
+                    </VStack>
+                  </Box>
+                )}
+
+                {/* Analytics Summary */}
+                {!analyticsLoading && (
+                  <Box mt={4} p={4} bg="gray.50" borderRadius="lg">
+                    <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
+                      <VStack align="start" gap={1}>
+                        <Text fontSize="xs" color="gray.600">
+                          {analyticsTab === 'revenue' ? 'Top Product Revenue' :
+                           analyticsTab === 'orders' ? 'Most Orders Status' :
+                           'Best Selling Product'}
+                        </Text>
+                        <Text fontSize="sm" fontWeight="bold" color="blue.700">
+                          {analyticsTab === 'revenue' && analyticsData.month?.products_sales[0] && (
+                            `${analyticsData.month.products_sales[0].product_name} - ₱${analyticsData.month.products_sales[0].total_revenue.toLocaleString()}`
+                          )}
+                          {analyticsTab === 'orders' && analyticsData.month?.order_status_breakdown[0] && (
+                            `${analyticsData.month.order_status_breakdown[0].status} (${analyticsData.month.order_status_breakdown[0].count})`
+                          )}
+                          {analyticsTab === 'customers' && analyticsData.month?.products_sales[0] && (
+                            `${analyticsData.month.products_sales[0].product_name} (${analyticsData.month.products_sales[0].total_quantity_sold} sold)`
+                          )}
+                          {!analyticsData.month && 'N/A'}
+                        </Text>
+                      </VStack>
+                      <VStack align="start" gap={1}>
+                        <Text fontSize="xs" color="gray.600">Weekly Total</Text>
+                        <Text fontSize="sm" fontWeight="bold" color="blue.700">
+                          {analyticsTab === 'revenue' && analyticsData.week && (
+                            `₱${analyticsData.week.total_revenue.toLocaleString()}`
+                          )}
+                          {analyticsTab === 'orders' && analyticsData.week && (
+                            `${analyticsData.week.total_orders} orders`
+                          )}
+                          {analyticsTab === 'customers' && analyticsData.week && (
+                            `${analyticsData.week.total_products_sold.toFixed(0)} products sold`
+                          )}
+                          {!analyticsData.week && 'N/A'}
+                        </Text>
+                      </VStack>
+                      <VStack align="start" gap={1}>
+                        <Text fontSize="xs" color="gray.600">Monthly Total</Text>
+                        <Text fontSize="sm" fontWeight="bold" color="blue.700">
+                          {analyticsTab === 'revenue' && analyticsData.month && (
+                            `₱${analyticsData.month.total_revenue.toLocaleString()}`
+                          )}
+                          {analyticsTab === 'orders' && analyticsData.month && (
+                            `${analyticsData.month.total_orders} orders`
+                          )}
+                          {analyticsTab === 'customers' && analyticsData.month && (
+                            `${analyticsData.month.total_products_sold.toFixed(0)} products sold`
+                          )}
+                          {!analyticsData.month && 'N/A'}
+                        </Text>
+                      </VStack>
+                    </SimpleGrid>
+
+                    {/* Top Products Table */}
+                    {analyticsData.month && analyticsData.month.products_sales.length > 0 && (
+                      <Box mt={4} pt={4} borderTop="1px solid" borderColor="gray.200">
+                        <Text fontSize="sm" fontWeight="bold" color="gray.700" mb={3}>
+                          Top 5 Products This Month
+                        </Text>
+                        <VStack align="stretch" gap={2}>
+                          {analyticsData.month.products_sales.slice(0, 5).map((product, idx) => (
+                            <Flex
+                              key={product.product_id}
+                              justify="space-between"
+                              align="center"
+                              p={2}
+                              bg="white"
+                              borderRadius="md"
+                              border="1px solid"
+                              borderColor="gray.200"
+                            >
+                              <HStack gap={3}>
+                                <Badge colorScheme="blue" fontSize="xs">#{idx + 1}</Badge>
+                                <VStack align="start" gap={0}>
+                                  <Text fontSize="sm" fontWeight="medium">{product.product_name}</Text>
+                                  <Text fontSize="xs" color="gray.500">{product.category}</Text>
+                                </VStack>
+                              </HStack>
+                              <VStack align="end" gap={0}>
+                                <Text fontSize="sm" fontWeight="bold" color="green.600">
+                                  ₱{product.total_revenue.toLocaleString()}
+                                </Text>
+                                <Text fontSize="xs" color="gray.500">
+                                  {product.total_quantity_sold} sold | {product.order_count} orders
+                                </Text>
+                              </VStack>
+                            </Flex>
+                          ))}
+                        </VStack>
+                      </Box>
+                    )}
+                  </Box>
+                )}
               </Box>
 
           {/* Statistics Cards */}

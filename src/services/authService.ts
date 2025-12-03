@@ -142,6 +142,33 @@ class AuthService {
     });
   }
 
+  async fetchCurrentUser(): Promise<User> {
+    const response = await this.makeRequest<any>(API_ENDPOINTS.user, {
+      method: 'GET',
+    });
+
+    // Transform API response to User object with all extended fields
+    const user: User = {
+      id: response.id,
+      username: response.username,
+      email: response.email,
+      first_name: response.first_name,
+      last_name: response.last_name,
+      role: response.role,
+      name: `${response.first_name} ${response.last_name}`.trim(),
+      // Include extended fields from API response
+      ...(response.phone && { phone: response.phone }),
+      ...(response.address && { address: response.address }),
+      ...(response.date_of_birth && { date_of_birth: response.date_of_birth }),
+      ...(response.gender && { gender: response.gender }),
+    };
+
+    // Update local storage with fresh data including all fields
+    localStorage.setItem('user', JSON.stringify(user));
+
+    return user;
+  }
+
   logout(): void {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -167,6 +194,28 @@ class AuthService {
       user.name = `${user.first_name} ${user.last_name}`.trim();
       localStorage.setItem('user', JSON.stringify(user));
     }
+  }
+
+  // OTP Methods
+  async requestOtp(email: string, purpose: 'register' | 'forgot_password'): Promise<MessageResponse> {
+    return await this.makeRequest<MessageResponse>(API_ENDPOINTS.requestOtp, {
+      method: 'POST',
+      body: JSON.stringify({ email, purpose }),
+    });
+  }
+
+  async verifyOtp(email: string, otpCode: string, purpose: 'register' | 'forgot_password'): Promise<MessageResponse> {
+    return await this.makeRequest<MessageResponse>(API_ENDPOINTS.verifyOtp, {
+      method: 'POST',
+      body: JSON.stringify({ email, otp_code: otpCode, purpose }),
+    });
+  }
+
+  async resetPassword(email: string, otpCode: string, newPassword: string): Promise<MessageResponse> {
+    return await this.makeRequest<MessageResponse>(API_ENDPOINTS.resetPassword, {
+      method: 'POST',
+      body: JSON.stringify({ email, otp_code: otpCode, new_password: newPassword }),
+    });
   }
 }
 

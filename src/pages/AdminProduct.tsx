@@ -423,12 +423,18 @@ const AdminProduct: React.FC = () => {
                             </td>
                             <td>{product.unit}</td>
                             <td>
-                              <Badge 
-                                className={`admin-badge-${
-                                  product.is_active ? 'green' : 'orange'
-                                }`}
+                              <Badge
+                                bg={product.stock_quantity > 0 ? '#2f855a' : '#dd6b20'}
+                                color="white"
+                                px={3}
+                                py={1.5}
+                                borderRadius="md"
+                                fontSize="xs"
+                                fontWeight="bold"
+                                textTransform="uppercase"
+                                letterSpacing="wider"
                               >
-                                {product.is_active ? 'Active' : 'Inactive'}
+                                {product.stock_quantity > 0 ? 'In Stock' : 'Out of Stock'}
                               </Badge>
                             </td>
                             <td>
@@ -624,7 +630,7 @@ const AdminProduct: React.FC = () => {
                   </Box>
 
                   <HStack width="100%" justify="space-between" align="center">
-                    <Text fontSize="sm" fontWeight="semibold">Active</Text>
+                    <Text fontSize="sm" fontWeight="semibold">In Stock</Text>
                     <Switch.Root
                       checked={formData.is_active}
                       onCheckedChange={(details) => setFormData({ ...formData, is_active: details.checked })}

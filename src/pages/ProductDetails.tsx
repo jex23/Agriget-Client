@@ -25,7 +25,6 @@ import { apiCartService } from '../services/apiCartService';
 import { API_ENDPOINTS } from '../constants/api';
 import { ROUTES } from '../constants/routes.js';
 import Header from '../components/Header.js';
-import Footer from '../components/Footer.js';
 import './ProductDetails.css';
 
 const ProductDetails: React.FC = () => {
@@ -135,7 +134,8 @@ const ProductDetails: React.FC = () => {
 
     const minOrder = product.minimum_order || 1;
     if (quantity < minOrder) {
-      alert(`Minimum order quantity is ${minOrder} ${product.unit}`);
+      const label = isSandOrGravel() ? 'volume' : 'quantity';
+      alert(`Minimum order ${label} is ${minOrder} ${product.unit}`);
       return;
     }
 
@@ -165,18 +165,32 @@ const ProductDetails: React.FC = () => {
 
     const minOrder = product.minimum_order || 1;
     if (quantity < minOrder) {
-      alert(`Minimum order quantity is ${minOrder} ${product.unit}`);
+      const label = isSandOrGravel() ? 'volume' : 'quantity';
+      alert(`Minimum order ${label} is ${minOrder} ${product.unit}`);
       return;
     }
 
     setIsAddingToCart(true);
     try {
+      // First, remove the item from cart if it exists to start fresh
+      // This ensures Buy Now always starts with a fresh quantity, not adding to existing
+      try {
+        await apiCartService.removeFromCart(product.id);
+      } catch (error) {
+        // Item might not be in cart, that's okay
+        console.log('Item not in cart or failed to remove, will add fresh');
+      }
+
+      // Add to cart with fresh quantity
       await apiCartService.addToCart({
         product_id: product.id,
         quantity: quantity
       });
       await fetchCart();
-      navigate(ROUTES.CART);
+
+      // Navigate to cart for immediate checkout with Buy Now mode
+      // Pass the product ID to show only this item in cart
+      navigate(ROUTES.CART, { state: { buyNowProductId: product.id } });
     } catch (error) {
       console.error('Failed to add to cart:', error);
       alert('Failed to add product to cart. Please try again.');
@@ -197,6 +211,13 @@ const ProductDetails: React.FC = () => {
       default:
         return 'gray';
     }
+  };
+
+  // Helper function to check if product is sand or gravel
+  const isSandOrGravel = () => {
+    if (!product) return false;
+    const category = product.category?.toLowerCase() || '';
+    return category === 'sand' || category === 'gravel';
   };
 
   const getTotalItems = () => {
@@ -229,7 +250,6 @@ const ProductDetails: React.FC = () => {
             </SimpleGrid>
           </VStack>
         </Container>
-        <Footer />
       </Box>
     );
   }
@@ -256,7 +276,6 @@ const ProductDetails: React.FC = () => {
             </Button>
           </Box>
         </Container>
-        <Footer />
       </Box>
     );
   }
@@ -573,7 +592,7 @@ const ProductDetails: React.FC = () => {
               >
                 <Flex justify="space-between" align="center" mb={3}>
                   <Text fontSize="sm" fontWeight="700" color="gray.800" textTransform="uppercase" letterSpacing="wide">
-                    Select Quantity
+                    {isSandOrGravel() ? 'Select Volume' : 'Select Quantity'}
                   </Text>
                   {quantity >= minimumOrder && (
                     <Badge colorScheme="green" fontSize="2xs" px={2} py={1} borderRadius="full">
@@ -681,7 +700,7 @@ const ProductDetails: React.FC = () => {
                   <Flex justify="space-between" align="center" width="100%">
                     <VStack align="start" gap={0}>
                       <Text fontSize="xs" fontWeight="700" color="blue.100" textTransform="uppercase" letterSpacing="wider">
-                        Total Amount
+                        {isSandOrGravel() ? 'Total Volume Price' : 'Total Amount'}
                       </Text>
                       <Text fontSize="2xs" color="blue.200">
                         ({quantity} {product.unit})
@@ -694,7 +713,7 @@ const ProductDetails: React.FC = () => {
                   {quantity > minimumOrder && (
                     <Box bg="whiteAlpha.200" px={3} py={1} borderRadius="full" width="100%">
                       <Text fontSize="2xs" color="white" fontWeight="600" textAlign="center">
-                        💰 Great choice! Ordering {quantity - minimumOrder} extra {product.unit}
+                        💰 Great choice! {isSandOrGravel() ? 'Adding' : 'Ordering'} {quantity - minimumOrder} extra {product.unit}
                       </Text>
                     </Box>
                   )}
@@ -734,7 +753,7 @@ const ProductDetails: React.FC = () => {
                   <HStack gap={2}>
                     <FiShoppingCart size={20} />
                     <Text>
-                      {isOutOfStock ? 'Out of Stock' : quantity < minimumOrder ? `Select ${minimumOrder} ${product.unit} minimum` : 'Add to Cart'}
+                      {isOutOfStock ? 'Out of Stock' : quantity < minimumOrder ? `Select ${minimumOrder} ${product.unit} minimum` : isSandOrGravel() ? 'Add Volume to Cart' : 'Add to Cart'}
                     </Text>
                   </HStack>
                 </Button>
@@ -767,7 +786,7 @@ const ProductDetails: React.FC = () => {
                   overflow="hidden"
                 >
                   <Box position="relative" zIndex={1}>
-                    {isOutOfStock ? 'Out of Stock' : quantity < minimumOrder ? `Select ${minimumOrder} ${product.unit} minimum` : '🛒 Buy Now - Fast Checkout'}
+                    {isOutOfStock ? 'Out of Stock' : quantity < minimumOrder ? `Select ${minimumOrder} ${product.unit} minimum` : isSandOrGravel() ? '🛒 Buy Now - Fast Checkout' : '🛒 Buy Now - Fast Checkout'}
                   </Box>
                   <Box
                     position="absolute"
@@ -783,7 +802,7 @@ const ProductDetails: React.FC = () => {
                 {!isOutOfStock && quantity >= minimumOrder && (
                   <Flex gap={2} align="center" justify="center" width="100%">
                     <Text fontSize="xs" color="green.600" fontWeight="700">
-                      ✓ Ready to order
+                      ✓ {isSandOrGravel() ? 'Ready to add' : 'Ready to order'}
                     </Text>
                     <Text fontSize="xs" color="gray.500">•</Text>
                     <Text fontSize="xs" color="blue.600" fontWeight="700">
@@ -796,8 +815,6 @@ const ProductDetails: React.FC = () => {
           </Flex>
         </VStack>
       </Container>
-
-      <Footer />
     </Box>
   );
 };

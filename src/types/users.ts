@@ -11,6 +11,7 @@ export interface UserUpdate {
   username?: string;
   role?: 'admin' | 'user';
   status?: 'active' | 'disable';
+  archive?: 0 | 1;
 }
 
 export interface ChangePasswordRequest {
@@ -33,6 +34,7 @@ export interface UserResponse {
   updated_at: string;
   last_logon: string | null;
   status: 'active' | 'disable';
+  archive: 0 | 1;
 }
 
 export interface MessageResponse {

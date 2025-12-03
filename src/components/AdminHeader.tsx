@@ -549,15 +549,6 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                       size="sm"
                       justifyContent="flex-start"
                       borderRadius="none"
-                    >
-                      👤 Profile Settings
-                    </Button>
-                    <Button
-                      className="admin-header-dropdown-item"
-                      variant="ghost"
-                      size="sm"
-                      justifyContent="flex-start"
-                      borderRadius="none"
                       onClick={() => navigate('/admin/notifications')}
                     >
                       🔔 Notifications

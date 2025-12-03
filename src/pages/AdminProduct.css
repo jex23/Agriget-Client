@@ -209,12 +209,20 @@
 
 /* Text and label colors */
 .admin-container label,
-.admin-container span,
+.admin-container span:not([data-part="root"]):not(.chakra-badge),
 .admin-container p,
 .admin-product-container label,
-.admin-product-container span,
+.admin-product-container span:not([data-part="root"]):not(.chakra-badge),
 .admin-product-container p {
   color: #4a5568 !important;
+}
+
+/* Force badge text to be white */
+.admin-container .chakra-badge,
+.admin-container [data-part="root"],
+.admin-product-container .chakra-badge,
+.admin-product-container [data-part="root"] {
+  color: white !important;
 }
 
 /* Override Chakra UI table styles */

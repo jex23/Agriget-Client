@@ -1,5 +1,5 @@
-export const API_BASE_URL = 'https://jamesgalos.shop/apiv1/agriget';
-//export const API_BASE_URL = 'http://localhost:8000';
+//export const API_BASE_URL = 'https://jamesgalos.shop/apiv1/agriget';
+export const API_BASE_URL = 'http://127.0.0.1:5096';
 
 export const API_ENDPOINTS = {
   // Auth endpoints
@@ -9,6 +9,11 @@ export const API_ENDPOINTS = {
   users: `${API_BASE_URL}/users`,
   userById: (id: number) => `${API_BASE_URL}/user/${id}`,
   changePassword: `${API_BASE_URL}/change-password`,
+
+  // OTP endpoints
+  requestOtp: `${API_BASE_URL}/request-otp`,
+  verifyOtp: `${API_BASE_URL}/verify-otp`,
+  resetPassword: `${API_BASE_URL}/reset-password`,
   
   // Product endpoints
   products: `${API_BASE_URL}/products`,
@@ -37,4 +42,9 @@ export const API_ENDPOINTS = {
   orderProofsByOrderId: (orderId: number) => `${API_BASE_URL}/order-proofs/${orderId}`,
   orderProofById: (proofId: number) => `${API_BASE_URL}/order-proofs/proof/${proofId}`,
   orderProofUpdate: (proofId: number) => `${API_BASE_URL}/order-proofs/${proofId}`,
+
+  // Analytics endpoints
+  analytics: {
+    sales: `${API_BASE_URL}/analytics/sales`,
+  },
 } as const;

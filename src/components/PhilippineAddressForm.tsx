@@ -97,24 +97,71 @@ const PhilippineAddressForm: React.FC<PhilippineAddressFormProps> = ({
   const [street, setStreet] = useState('');
   const [landmark, setLandmark] = useState('');
   const [zipCode, setZipCode] = useState('4704'); // ZIP code for Bulusan
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   // Initialize with Bulusan, Sorsogon data on mount
   useEffect(() => {
     initializeBulusanAddress();
   }, []);
 
-  // Parse initial address if provided
+  // Parse initial address ONLY ONCE on mount
   useEffect(() => {
-    if (initialAddress) {
+    if (initialAddress && !hasInitialized) {
       parseInitialAddress(initialAddress);
+      setHasInitialized(true);
     }
-  }, [initialAddress]);
+  }, [initialAddress, hasInitialized]);
 
   const parseInitialAddress = (address: string) => {
-    // Simple parsing - you can enhance this
+    if (!address) return;
+
+    // Parse the address string to extract all components
     const parts = address.split(',').map(s => s.trim());
-    if (parts.length > 0) setUnitNumber(parts[0]);
-    if (parts.length > 1) setStreet(parts[1]);
+
+    // Extract landmark if present (format: "(Landmark: text)")
+    const landmarkPart = parts.find(p => p.startsWith('(Landmark:'));
+    if (landmarkPart) {
+      const landmarkMatch = landmarkPart.match(/\(Landmark:\s*(.+)\)/);
+      if (landmarkMatch) {
+        setLandmark(landmarkMatch[1].trim());
+      }
+    }
+
+    // Extract ZIP code (4-digit number)
+    const zipPart = parts.find(p => /^\d{4}$/.test(p));
+    if (zipPart) {
+      setZipCode(zipPart);
+    }
+
+    // Extract barangay (format: "Barangay Name" or after finding other parts)
+    const barangayPart = parts.find(p => p.startsWith('Barangay '));
+    if (barangayPart) {
+      const barangayName = barangayPart.replace('Barangay ', '').trim();
+      const barangay = BULUSAN_BARANGAYS.find(b =>
+        b.name.toLowerCase() === barangayName.toLowerCase()
+      );
+      if (barangay) {
+        setSelectedBarangay(barangay.code);
+      }
+    }
+
+    // Extract unit number and street (everything before "Barangay" or "Bulusan")
+    const stopWords = ['Barangay', 'Bulusan', 'Sorsogon'];
+    const addressParts = [];
+
+    for (const part of parts) {
+      // Stop when we hit location parts
+      if (stopWords.some(word => part.includes(word)) ||
+          /^\d{4}$/.test(part) ||
+          part.startsWith('(Landmark:')) {
+        break;
+      }
+      addressParts.push(part);
+    }
+
+    // Set unit number and street from remaining parts
+    if (addressParts.length > 0) setUnitNumber(addressParts[0]);
+    if (addressParts.length > 1) setStreet(addressParts[1]);
   };
 
   // Initialize with Bulusan, Sorsogon data

@@ -21,7 +21,7 @@ import {
   SelectValueText,
 } from '@chakra-ui/react/select';
 import { createListCollection } from '@chakra-ui/react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import type { User } from '../types/auth.js';
 import type { CartItem } from '../types/cart';
 import type { CreateOrderRequest, PaymentTerms, OrderPriority, ShipmentType } from '../types/order';
@@ -51,8 +51,13 @@ const Cart: React.FC = () => {
   const [priority, setPriority] = useState<OrderPriority>('medium');
   const [shipmentType, setShipmentType] = useState<ShipmentType>('delivery');
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [buyNowMode, setBuyNowMode] = useState(false);
+  const [buyNowProductId, setBuyNowProductId] = useState<number | null>(null);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [orderSuccessData, setOrderSuccessData] = useState<{ itemCount: number; total: number } | null>(null);
   const navigate = useNavigate();
-  
+  const location = useLocation();
+
   const toaster = createToaster({
     placement: 'top'
   });
@@ -103,6 +108,15 @@ const Cart: React.FC = () => {
     }
   };
 
+  // Auto-update payment terms based on shipment type
+  useEffect(() => {
+    if (shipmentType === 'delivery') {
+      setPaymentTerms('cash_on_delivery');
+    } else if (shipmentType === 'pickup') {
+      setPaymentTerms('over_the_counter');
+    }
+  }, [shipmentType]);
+
   useEffect(() => {
     const currentUser = authService.getCurrentUser();
     if (!currentUser) {
@@ -111,18 +125,26 @@ const Cart: React.FC = () => {
     }
     setUser(currentUser);
 
+    // Check if this is a "Buy Now" flow
+    const state = location.state as { buyNowProductId?: number } | null;
+    if (state?.buyNowProductId) {
+      console.log('🛒 [Cart] Buy Now mode activated for product ID:', state.buyNowProductId);
+      setBuyNowMode(true);
+      setBuyNowProductId(state.buyNowProductId);
+    }
+
     // Load cart from API and user profile
     const fetchData = async () => {
       try {
         setLoading(true);
         console.log('🛒 [Cart] Fetching cart from API');
-        
+
         // Fetch cart and user profile in parallel
         const [cartData] = await Promise.all([
           apiCartService.getCart(),
           fetchUserProfile()
         ]);
-        
+
         console.log('🛒 [Cart] Cart data received:', cartData);
 
         // Log each item's details for debugging
@@ -140,20 +162,29 @@ const Cart: React.FC = () => {
           });
         });
 
-        setCartItems(cartData);
+        // If in Buy Now mode, filter to show only the selected product
+        let displayItems = cartData;
+        if (state?.buyNowProductId) {
+          displayItems = cartData.filter(item => item.product_id === state.buyNowProductId);
+          console.log('🛒 [Cart] Filtered to Buy Now product only:', displayItems);
+        }
+
+        setCartItems(displayItems);
 
         // Initialize local quantities with current cart quantities
         const quantities: { [key: number]: number } = {};
         const selections: { [key: number]: boolean } = {};
-        cartData.forEach(item => {
+        displayItems.forEach(item => {
           quantities[item.product_id] = item.quantity;
-          selections[item.product_id] = true; // Select all items by default
+          // In Buy Now mode, auto-select only the buy now item
+          // In normal mode, select all items by default
+          selections[item.product_id] = true;
         });
         setLocalQuantities(quantities);
         setSelectedItems(selections);
         console.log('🛒 [Cart] Local quantities initialized:', quantities);
         console.log('🛒 [Cart] Item selections initialized:', selections);
-        
+
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch cart');
       } finally {
@@ -162,7 +193,7 @@ const Cart: React.FC = () => {
     };
 
     fetchData();
-  }, [navigate]);
+  }, [navigate, location.state]);
 
   // Local quantity management (no API calls)
   const updateLocalQuantity = (productId: number, newQuantity: number) => {
@@ -340,7 +371,7 @@ const Cart: React.FC = () => {
     return item.product_minimum_order || 1;
   };
 
-  // Get pickup price for CHB hollow blocks (no minimum order required)
+  // Get pickup price for CHB hollow blocks (original price minus 1)
   const getCHBPickupPrice = (item: CartItem): number | null => {
     console.log('💰 [Pickup Price] Checking for:', item.product_name, '| Shipment Type:', shipmentType);
 
@@ -352,12 +383,10 @@ const Cart: React.FC = () => {
     const chbSize = getCHBHollowBlockSize(item);
     console.log('💰 [Pickup Price] CHB Size detected:', chbSize);
 
-    if (chbSize === '4x4') {
-      console.log('💰 [Pickup Price] Returning ₱14 for 4x4');
-      return 14; // New price for 4x4 when pickup (any quantity)
-    } else if (chbSize === '5x5') {
-      console.log('💰 [Pickup Price] Returning ₱19 for 5x5');
-      return 19; // New price for 5x5 when pickup (any quantity)
+    if (chbSize === '4x4' || chbSize === '5x5') {
+      const pickupPrice = item.product_price - 1; // Subtract 1 from original price
+      console.log('💰 [Pickup Price] Returning ₱' + pickupPrice + ' (original: ₱' + item.product_price + ' minus ₱1)');
+      return pickupPrice;
     }
 
     console.log('💰 [Pickup Price] No CHB size matched, returning null');
@@ -579,13 +608,15 @@ const Cart: React.FC = () => {
       });
       setIsCheckoutModalOpen(false);
 
-      toaster.create({
-        title: 'Order Placed Successfully!',
-        description: `${selectedCartItems.length} order(s) have been placed. Stock quantities have been updated. You will be contacted for delivery details.`,
-        type: 'success',
-        duration: 5000,
+      // Store order success data for modal
+      setOrderSuccessData({
+        itemCount: selectedCartItems.length,
+        total: getGrandTotal()
       });
-      
+
+      // Show success modal
+      setIsSuccessModalOpen(true);
+
     } catch (err) {
       console.error('Failed to place order:', err);
       toaster.create({
@@ -601,6 +632,20 @@ const Cart: React.FC = () => {
 
   const handleSidebarToggle = () => {
     setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  // Handle direct input of quantity
+  const handleQuantityInput = (productId: number, value: string) => {
+    const numValue = parseInt(value);
+    if (!isNaN(numValue) && numValue >= 1) {
+      updateLocalQuantity(productId, numValue);
+    } else if (value === '') {
+      // Allow empty field temporarily
+      setLocalQuantities(prev => ({
+        ...prev,
+        [productId]: 1
+      }));
+    }
   };
 
   if (!user) {
@@ -668,7 +713,7 @@ const Cart: React.FC = () => {
         <VStack gap={8} align="stretch">
           <Box>
             <Heading className="cart-title" size="xl" mb={2}>
-              Shopping Cart
+              {buyNowMode ? 'Quick Checkout' : 'Shopping Cart'}
             </Heading>
             <Text className="cart-subtitle">
               {cartItems.length === 0 ? 'Your cart is empty' : `${getTotalItems()} items in your cart`}
@@ -696,65 +741,70 @@ const Cart: React.FC = () => {
               {/* Cart Items */}
               <Box gridColumn={{ base: 1, lg: "1 / 3" }}>
                 <VStack gap={4}>
-                  {/* Select All Checkbox */}
-                  <Box w="full" p={4} bg="gray.50" borderRadius="lg">
-                    <Flex align="center" justify="space-between">
-                      <HStack gap={2}>
-                        <Box position="relative">
-                          <input
-                            type="checkbox"
-                            checked={cartItems.length > 0 && cartItems.every(item => selectedItems[item.product_id])}
-                            ref={(input) => {
-                              if (input) {
-                                input.indeterminate = cartItems.some(item => selectedItems[item.product_id]) && !cartItems.every(item => selectedItems[item.product_id]);
-                              }
-                            }}
-                            onChange={handleSelectAll}
-                            className="cart-select-all-checkbox"
-                            style={{
-                              width: '18px',
-                              height: '18px',
-                              cursor: 'pointer'
-                            }}
-                          />
-                        </Box>
-                        <Text fontWeight="medium" fontSize="sm">
-                          Select All Items ({cartItems.length})
-                        </Text>
-                      </HStack>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        colorScheme="red"
-                        onClick={clearCart}
-                        style={{
-                          backgroundColor: 'transparent',
-                          color: '#e53e3e'
-                        }}
-                        _hover={{
-                          backgroundColor: '#fed7d7'
-                        }}
-                      >
-                        🗑️ Clear All
-                      </Button>
-                    </Flex>
-                  </Box>
+                  {/* Select All Checkbox - Hidden in Buy Now mode */}
+                  {!buyNowMode && (
+                    <Box w="full" p={4} bg="gray.50" borderRadius="lg">
+                      <Flex align="center" justify="space-between">
+                        <HStack gap={2}>
+                          <Box position="relative">
+                            <input
+                              type="checkbox"
+                              checked={cartItems.length > 0 && cartItems.every(item => selectedItems[item.product_id])}
+                              ref={(input) => {
+                                if (input) {
+                                  input.indeterminate = cartItems.some(item => selectedItems[item.product_id]) && !cartItems.every(item => selectedItems[item.product_id]);
+                                }
+                              }}
+                              onChange={handleSelectAll}
+                              className="cart-select-all-checkbox"
+                              style={{
+                                width: '18px',
+                                height: '18px',
+                                cursor: 'pointer'
+                              }}
+                            />
+                          </Box>
+                          <Text fontWeight="medium" fontSize="sm">
+                            Select All Items ({cartItems.length})
+                          </Text>
+                        </HStack>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          colorScheme="red"
+                          onClick={clearCart}
+                          style={{
+                            backgroundColor: 'transparent',
+                            color: '#e53e3e'
+                          }}
+                          _hover={{
+                            backgroundColor: '#fed7d7'
+                          }}
+                        >
+                          🗑️ Clear All
+                        </Button>
+                      </Flex>
+                    </Box>
+                  )}
                   {cartItems.map(item => (
                     <Box key={item.id} className="cart-item-card">
                       <Flex gap={4} align="center">
-                        <Box position="relative">
-                          <input
-                            type="checkbox"
-                            checked={selectedItems[item.product_id] || false}
-                            onChange={(e) => handleItemSelection(item.product_id, e.target.checked)}
-                            className="cart-item-checkbox"
-                            style={{
-                              width: '18px',
-                              height: '18px',
-                              cursor: 'pointer'
-                            }}
-                          />
-                        </Box>
+                        {/* Hide checkbox in Buy Now mode */}
+                        {!buyNowMode && (
+                          <Box position="relative">
+                            <input
+                              type="checkbox"
+                              checked={selectedItems[item.product_id] || false}
+                              onChange={(e) => handleItemSelection(item.product_id, e.target.checked)}
+                              className="cart-item-checkbox"
+                              style={{
+                                width: '18px',
+                                height: '18px',
+                                cursor: 'pointer'
+                              }}
+                            />
+                          </Box>
+                        )}
                         <Box className="cart-item-image">
                           {item.product_image ? (
                             <img 
@@ -792,7 +842,7 @@ const Cart: React.FC = () => {
                               </Text>
                             )}
                           </VStack>
-                          <HStack>
+                          <HStack gap={1}>
                             <Button
                               className="cart-quantity-button"
                               size="sm"
@@ -804,13 +854,26 @@ const Cart: React.FC = () => {
                             >
                               -
                             </Button>
-                            <Text
-                              className="cart-quantity-text"
-                              minW="40px"
+                            <Input
+                              className="cart-quantity-input"
+                              value={localQuantities[item.product_id] || item.quantity}
+                              onChange={(e) => handleQuantityInput(item.product_id, e.target.value)}
+                              onBlur={() => {
+                                scheduleAutoSync();
+                              }}
+                              size="sm"
+                              width="60px"
                               textAlign="center"
-                            >
-                              {localQuantities[item.product_id] || item.quantity}
-                            </Text>
+                              fontWeight="medium"
+                              fontSize="sm"
+                              p={1}
+                              border="1px solid"
+                              borderColor="gray.300"
+                              borderRadius="md"
+                              bg="white"
+                              color="gray.800"
+                              _focus={{ borderColor: "blue.500", boxShadow: "0 0 0 1px #3182ce" }}
+                            />
                             <Button
                               className="cart-quantity-button"
                               size="sm"
@@ -1294,6 +1357,126 @@ const Cart: React.FC = () => {
                   {isPlacingOrder ? 'Placing Order...' : 'Place Order'}
                 </Button>
               </HStack>
+            </VStack>
+          </Box>
+        </Box>
+      )}
+
+      {/* Success Modal */}
+      {isSuccessModalOpen && orderSuccessData && (
+        <Box
+          position="fixed"
+          top="0"
+          left="0"
+          right="0"
+          bottom="0"
+          bg="rgba(0, 0, 0, 0.6)"
+          zIndex={1001}
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          p={4}
+          className="cart-success-modal-overlay"
+        >
+          <Box
+            bg="white"
+            borderRadius="xl"
+            p={8}
+            maxWidth="500px"
+            width="100%"
+            textAlign="center"
+            className="cart-success-modal"
+            style={{
+              backgroundColor: '#ffffff',
+              color: '#2d3748',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+            }}
+          >
+            <VStack gap={5}>
+              {/* Success Icon */}
+              <Box
+                fontSize="6xl"
+                color="green.500"
+                animation="bounce 1s ease-in-out"
+              >
+                ✅
+              </Box>
+
+              {/* Success Title */}
+              <Heading size="xl" color="green.600">
+                Order Successful!
+              </Heading>
+
+              {/* Success Message */}
+              <Text fontSize="lg" color="gray.700" lineHeight="1.6">
+                Your purchase has been completed successfully.
+              </Text>
+
+              {/* Order Details */}
+              <Box
+                bg="green.50"
+                p={4}
+                borderRadius="lg"
+                width="100%"
+                border="1px solid"
+                borderColor="green.200"
+              >
+                <VStack gap={2}>
+                  <Flex justify="space-between" width="100%">
+                    <Text fontWeight="semibold" color="gray.700">Items Ordered:</Text>
+                    <Text fontWeight="bold" color="green.700">{orderSuccessData.itemCount}</Text>
+                  </Flex>
+                  <Flex justify="space-between" width="100%">
+                    <Text fontWeight="semibold" color="gray.700">Total Amount:</Text>
+                    <Text fontWeight="bold" color="green.700" fontSize="lg">
+                      ₱{orderSuccessData.total.toFixed(2)}
+                    </Text>
+                  </Flex>
+                </VStack>
+              </Box>
+
+              {/* Additional Info */}
+              <Text fontSize="sm" color="gray.600" textAlign="center">
+                You will be contacted shortly for delivery details. Thank you for your order!
+              </Text>
+
+              {/* Action Buttons */}
+              <VStack gap={3} width="100%" pt={2}>
+                <Button
+                  width="100%"
+                  size="lg"
+                  onClick={() => navigate(ROUTES.HOME)}
+                  style={{
+                    backgroundColor: '#48bb78',
+                    color: '#ffffff'
+                  }}
+                  _hover={{
+                    backgroundColor: '#38a169'
+                  }}
+                >
+                  Continue Shopping
+                </Button>
+                <Button
+                  width="100%"
+                  variant="outline"
+                  onClick={() => {
+                    setIsSuccessModalOpen(false);
+                    setOrderSuccessData(null);
+                    navigate(ROUTES.ORDERS);
+                  }}
+                  style={{
+                    backgroundColor: '#ffffff',
+                    color: '#48bb78',
+                    border: '1px solid #48bb78'
+                  }}
+                  _hover={{
+                    backgroundColor: '#f0fff4'
+                  }}
+                >
+                  View My Orders
+                </Button>
+              </VStack>
             </VStack>
           </Box>
         </Box>

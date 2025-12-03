@@ -461,6 +461,27 @@ const Header: React.FC<HeaderProps> = ({ user, cartItemsData, onSidebarToggle, i
                   )}
                 </Box>
 
+                {/* Orders Button */}
+                <Button
+                  variant="ghost"
+                  size="md"
+                  onClick={() => navigate(ROUTES.ORDERS)}
+                  borderRadius="lg"
+                  color="gray.700"
+                  bg="transparent"
+                  border="none"
+                  fontWeight="500"
+                  _hover={{ bg: "blue.50", color: "blue.600" }}
+                  _active={{ bg: "blue.100" }}
+                  _focus={{ boxShadow: "none" }}
+                  title="View My Orders"
+                >
+                  <HStack gap={2}>
+                    <Box color="gray.700"><FiFileText /></Box>
+                    <Text color="gray.700" display={{ base: 'none', sm: 'block' }}>Orders</Text>
+                  </HStack>
+                </Button>
+
                 {/* Admin Button - Only show for admin users */}
                 {user.role === 'admin' && (
                   <Button
@@ -558,27 +579,7 @@ const Header: React.FC<HeaderProps> = ({ user, cartItemsData, onSidebarToggle, i
                             <Text>Home</Text>
                           </HStack>
                         </Button>
-                        
-                        <Button
-                          variant="ghost"
-                          justifyContent="flex-start"
-                          size="sm"
-                          onClick={() => {
-                            navigate(ROUTES.ORDERS);
-                            setShowUserMenu(false);
-                          }}
-                          borderRadius="lg"
-                          color="gray.700"
-                          bg="transparent"
-                          _hover={{ bg: "gray.100" }}
-                          fontWeight="500"
-                        >
-                          <HStack gap={3}>
-                            <Box color="gray.600"><FiFileText /></Box>
-                            <Text>Orders</Text>
-                          </HStack>
-                        </Button>
-                        
+
                         <Button
                           variant="ghost"
                           justifyContent="flex-start"

@@ -150,12 +150,24 @@ const HollowBlocksProduct: React.FC<HollowBlocksProductProps> = ({
 
     setIsLoading(true);
     try {
+      // First, remove the item from cart if it exists to start fresh
+      // This ensures Buy Now always starts with a fresh quantity, not adding to existing
+      try {
+        await apiCartService.removeFromCart(selectedProduct.id);
+      } catch (error) {
+        // Item might not be in cart, that's okay
+        console.log('Item not in cart or failed to remove, will add fresh');
+      }
+
+      // Add to cart with fresh quantity
       await apiCartService.addToCart({
         product_id: selectedProduct.id,
         quantity: quantityToAdd
       });
       onCartUpdate?.();
-      navigate(ROUTES.CART);
+      // Navigate to cart for immediate checkout with Buy Now mode
+      // Pass the product ID to show only this item in cart
+      navigate(ROUTES.CART, { state: { buyNowProductId: selectedProduct.id } });
     } catch (error) {
       console.error('Failed to add to cart:', error);
     } finally {

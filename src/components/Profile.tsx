@@ -20,7 +20,7 @@ import PhilippineAddressForm from './PhilippineAddressForm';
 
 interface ProfileProps {
   user: User | null;
-  onUserUpdate?: () => void;
+  onUserUpdate?: () => Promise<void>;
 }
 
 const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate }) => {
@@ -144,18 +144,10 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate }) => {
         response
       });
 
-      // Update local storage with new user data
-      const updatedUser = { 
-        ...user, 
-        ...updateData,
-        name: `${updateData.first_name || user.first_name} ${updateData.last_name || user.last_name}`.trim()
-      };
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-
       setSuccessMessage(response.message || 'Your profile has been updated successfully.');
 
-      // Trigger parent component update
-      onUserUpdate?.();
+      // Trigger parent component update to fetch fresh data from API
+      await onUserUpdate?.();
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to update profile';

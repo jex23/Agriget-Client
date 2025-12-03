@@ -1,7 +1,25 @@
-cd/* Admin Orders Page Styles */
+/* Admin Orders Page Styles */
 .admin-orders-container {
   min-height: 100vh;
   background-color: #f7fafc;
+}
+
+/* Override Chakra UI global button styles that cause black backgrounds */
+.admin-orders-container button,
+.admin-orders-container .chakra-button {
+  background-color: initial !important;
+}
+
+.admin-orders-container button:not([class*="admin-sidebar"]):not([class*="admin-header"]) {
+  color: inherit !important;
+}
+
+/* Ensure table buttons are properly styled */
+.admin-orders-table button,
+.admin-orders-table .chakra-button {
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #4a5568 !important;
 }
 
 /* OVERRIDE: Ensure sidebar components never get borders or black backgrounds */
@@ -130,28 +148,45 @@ body:has(.admin-orders-container) [data-sidebar="admin"] .chakra-button:hover {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Order card styling */
-.admin-order-card {
+/* Table styling */
+.admin-orders-table {
+  width: 100%;
+  min-width: 1200px;
+}
+
+.admin-orders-table th {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  color: #4a5568;
+  padding: 12px 16px;
+  white-space: nowrap;
+}
+
+.admin-orders-table td {
+  padding: 12px 16px;
+  vertical-align: middle;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.admin-order-row {
   transition: all 0.2s ease-in-out;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: white;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 }
 
-.admin-order-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.12);
-  border-color: #cbd5e0;
+.admin-order-row:hover {
+  box-shadow: inset 0 0 0 1px #cbd5e0;
 }
 
-/* Product image enhancements */
-.admin-order-card .chakra-image {
+/* Product image in table */
+.admin-order-row .chakra-image {
   transition: transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.admin-order-card:hover .chakra-image {
-  transform: scale(1.02);
+.admin-order-row:hover .chakra-image {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 /* Tab component styling for status filter */
@@ -205,41 +240,78 @@ body:has(.admin-orders-container) [data-sidebar="admin"] .chakra-button:hover {
   box-shadow: 0 4px 12px rgba(43, 108, 176, 0.4);
 }
 
-/* Badge enhancements in selects */
-.admin-order-card .chakra-badge {
-  font-size: 0.75rem;
+/* Badge enhancements in table */
+.admin-orders-table .chakra-badge {
+  font-size: 0.7rem;
   padding: 0.25rem 0.5rem;
   border-radius: 6px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.025em;
+  white-space: nowrap;
 }
 
-/* Status selection dropdowns */
-.admin-order-card [data-part="trigger"] {
+/* Action buttons in table */
+.admin-order-action-button {
+  background-color: #ffffff !important;
+  border: 1px solid #cbd5e0 !important;
+  color: #718096 !important;
+  transition: all 0.2s ease !important;
+  font-size: 0.75rem !important;
+}
+
+.admin-order-action-button:hover {
+  background-color: #f7fafc !important;
+  border-color: #a0aec0 !important;
+  color: #2d3748 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+.admin-order-action-button:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Override for completed order proofs button */
+.admin-order-action-button[style*="3182ce"] {
+  border-color: #3182ce !important;
+  color: #3182ce !important;
+}
+
+.admin-order-action-button[style*="3182ce"]:hover {
+  background-color: #ebf8ff !important;
+  border-color: #2c5282 !important;
+  color: #2c5282 !important;
+}
+
+/* Status selection dropdowns in table */
+.admin-order-row [data-part="trigger"] {
   border: 1px solid #e2e8f0 !important;
   background-color: white !important;
   transition: all 0.2s ease !important;
-  min-height: 36px !important;
+  min-height: 32px !important;
+  cursor: pointer !important;
+  padding: 4px 8px !important;
 }
 
-.admin-order-card [data-part="trigger"]:hover {
+.admin-order-row [data-part="trigger"]:hover {
   border-color: #cbd5e0 !important;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.admin-order-card [data-part="trigger"]:focus {
+.admin-order-row [data-part="trigger"]:focus {
   border-color: #2b6cb0 !important;
   box-shadow: 0 0 0 2px rgba(43, 108, 176, 0.2);
 }
 
-.admin-order-card [data-part="trigger"][aria-disabled="true"] {
+.admin-order-row [data-part="trigger"][aria-disabled="true"] {
   opacity: 0.6;
-  cursor: not-allowed;
+  cursor: not-allowed !important;
   background-color: #f7fafc !important;
 }
 
-.admin-order-card [data-part="content"] {
+.admin-order-row [data-part="content"] {
   background-color: white !important;
   border: 1px solid #e2e8f0 !important;
   border-radius: 8px !important;
@@ -247,26 +319,18 @@ body:has(.admin-orders-container) [data-sidebar="admin"] .chakra-button:hover {
   z-index: 1000;
 }
 
-.admin-order-card [data-part="item"] {
+.admin-order-row [data-part="item"] {
   padding: 0.5rem 0.75rem !important;
   transition: background-color 0.2s ease !important;
 }
 
-.admin-order-card [data-part="item"]:hover {
+.admin-order-row [data-part="item"]:hover {
   background-color: #f7fafc !important;
 }
 
-.admin-order-card [data-part="item"][data-highlighted] {
+.admin-order-row [data-part="item"][data-highlighted] {
   background-color: #2b6cb0 !important;
   color: white !important;
-}
-
-/* Order customer info styling */
-.admin-order-card .customer-info {
-  background-color: #f8f9fa;
-  padding: 0.75rem;
-  border-radius: 8px;
-  border: 1px solid #e9ecef;
 }
 
 /* Status indicators */
@@ -280,36 +344,52 @@ body:has(.admin-orders-container) [data-sidebar="admin"] .chakra-button:hover {
 
 /* Responsive adjustments */
 @media (max-width: 1024px) {
-  .admin-order-card {
-    padding: 1rem !important;
+  .admin-orders-table {
+    min-width: 1000px;
+  }
+
+  .admin-orders-table th,
+  .admin-orders-table td {
+    padding: 10px 12px;
   }
 }
 
 @media (max-width: 768px) {
-  .admin-order-card {
-    padding: 1rem !important;
-    margin: 0 0.5rem;
+  .admin-orders-table {
+    min-width: 900px;
+    font-size: 0.875rem;
   }
-  
-  .admin-order-card .chakra-flex {
-    gap: 1rem !important;
+
+  .admin-orders-table th {
+    font-size: 0.7rem;
+    padding: 8px 10px;
   }
-  
+
+  .admin-orders-table td {
+    padding: 8px 10px;
+  }
+
   .back-to-admin-btn {
     font-size: 0.875rem !important;
     padding: 0.375rem 0.75rem !important;
   }
-  
+
   /* Mobile responsive tabs */
   .admin-order-tabs-container {
     padding: 0.25rem;
     gap: 0.25rem;
   }
-  
+
   .admin-order-tab {
     font-size: 0.75rem !important;
     padding: 0.375rem 0.75rem !important;
     min-height: 32px !important;
+  }
+
+  /* Smaller product images on mobile */
+  .admin-order-row img {
+    width: 50px;
+    height: 50px;
   }
 }
 
@@ -338,21 +418,28 @@ body:has(.admin-orders-container) [data-sidebar="admin"] .chakra-button:hover {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-/* Animation for new orders */
+/* Animation for table rows */
 @keyframes slideIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateX(-10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateX(0);
   }
 }
 
-.admin-order-card {
-  animation: slideIn 0.3s ease-out;
+.admin-order-row {
+  animation: slideIn 0.2s ease-out;
 }
+
+/* Staggered animation for rows */
+.admin-order-row:nth-child(1) { animation-delay: 0.05s; }
+.admin-order-row:nth-child(2) { animation-delay: 0.1s; }
+.admin-order-row:nth-child(3) { animation-delay: 0.15s; }
+.admin-order-row:nth-child(4) { animation-delay: 0.2s; }
+.admin-order-row:nth-child(5) { animation-delay: 0.25s; }
 
 /* Updating state indicator */
 .updating-indicator {
@@ -496,4 +583,34 @@ body:has(.admin-orders-container) [data-sidebar="admin"] .chakra-button:hover {
 [data-scope="dialog"] [style*="color: #4a5568"],
 [data-scope="dialog"] [style*="color:#4a5568"] {
   color: #4a5568 !important;
+}
+
+/* Success Modal Close Button - Make it dark and visible */
+.admin-orders-container [data-scope="dialog"][data-part="close-trigger"] {
+  position: absolute !important;
+  top: 1rem !important;
+  right: 1rem !important;
+  background: transparent !important;
+  border: none !important;
+  color: #4a5568 !important;
+  cursor: pointer !important;
+  padding: 0.5rem !important;
+  border-radius: 0.375rem !important;
+  transition: all 0.2s !important;
+  font-size: 1.25rem !important;
+  line-height: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 2rem !important;
+  height: 2rem !important;
+}
+
+.admin-orders-container [data-scope="dialog"][data-part="close-trigger"]:hover {
+  background: #e2e8f0 !important;
+  color: #2d3748 !important;
+}
+
+.admin-orders-container [data-scope="dialog"][data-part="close-trigger"]:active {
+  background: #cbd5e0 !important;
 }

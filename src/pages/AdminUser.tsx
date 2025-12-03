@@ -42,12 +42,23 @@ const AdminUser: React.FC = () => {
     date_of_birth: '',
     gender: 'male',
     role: 'user',
-    status: 'active'
+    status: 'active',
+    archive: 0
   });
   const [isEditing, setIsEditing] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarState, setSidebarState] = useState({ isExpanded: false, isMobile: window.innerWidth <= 1024 });
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [archiveFilter, setArchiveFilter] = useState<'all' | 'active' | 'archived'>('all');
+  const [resultModal, setResultModal] = useState<{
+    isOpen: boolean;
+    success: boolean;
+    message: string;
+  }>({
+    isOpen: false,
+    success: false,
+    message: ''
+  });
 
   const genderOptions = [
     { label: 'Male', value: 'male' },
@@ -64,7 +75,18 @@ const AdminUser: React.FC = () => {
     { label: 'Active', value: 'active' },
     { label: 'Disabled', value: 'disable' }
   ];
-  
+
+  const archiveOptions = [
+    { label: 'Active', value: '0' },
+    { label: 'Archived', value: '1' }
+  ];
+
+  const filterOptions = [
+    { label: 'All Users', value: 'all' },
+    { label: 'Active Only', value: 'active' },
+    { label: 'Archived Only', value: 'archived' }
+  ];
+
   const toaster = createToaster({
     placement: 'top'
   });
@@ -91,16 +113,29 @@ const AdminUser: React.FC = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
+      console.log('[DEBUG] fetchUsers: Starting to fetch all users...');
+      console.log('[DEBUG] fetchUsers: API endpoint will be:', '/users');
+      console.log('[DEBUG] fetchUsers: HTTP method: GET');
+
       const data = await adminUserService.getAllUsers();
+
+      console.log('[DEBUG] fetchUsers: Successfully fetched users:', data.length, 'users');
       setUsers(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch users');
-      toaster.create({
-        title: 'Error',
-        description: 'Failed to fetch users',
-        type: 'error',
-        duration: 3000,
+      console.error('[DEBUG] fetchUsers: ERROR occurred');
+      console.error('[DEBUG] fetchUsers: Error type:', err instanceof Error ? 'Error' : typeof err);
+      console.error('[DEBUG] fetchUsers: Error message:', err instanceof Error ? err.message : err);
+      console.error('[DEBUG] fetchUsers: Full error object:', err);
+
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch users';
+      setError(errorMessage);
+
+      // Show error modal
+      setResultModal({
+        isOpen: true,
+        success: false,
+        message: errorMessage
       });
     } finally {
       setLoading(false);
@@ -151,7 +186,7 @@ const AdminUser: React.FC = () => {
     }
 
     try {
-      const submitData: UserUpdate = { 
+      const submitData: UserUpdate = {
         ...formData,
         first_name: formData.first_name?.trim(),
         last_name: formData.last_name?.trim(),
@@ -162,27 +197,47 @@ const AdminUser: React.FC = () => {
         date_of_birth: formData.date_of_birth || undefined
       };
 
+      console.log('[DEBUG] handleSubmit: Starting user update...');
+      console.log('[DEBUG] handleSubmit: isEditing:', isEditing);
+      console.log('[DEBUG] handleSubmit: selectedUser:', selectedUser);
+      console.log('[DEBUG] handleSubmit: submitData:', submitData);
+
       if (isEditing && selectedUser) {
+        console.log('[DEBUG] handleSubmit: Updating user ID:', selectedUser.id);
+        console.log('[DEBUG] handleSubmit: API endpoint:', `/user/${selectedUser.id}`);
+        console.log('[DEBUG] handleSubmit: HTTP method: PUT');
+        console.log('[DEBUG] handleSubmit: Request body:', JSON.stringify(submitData, null, 2));
+
         await adminUserService.updateUser(selectedUser.id, submitData);
-        toaster.create({
-          title: 'Success',
-          description: 'User updated successfully',
-          type: 'success',
-          duration: 3000,
+
+        console.log('[DEBUG] handleSubmit: User updated successfully');
+
+        // Show success modal
+        setResultModal({
+          isOpen: true,
+          success: true,
+          message: 'User updated successfully!'
         });
+
+        resetForm();
+        setIsModalOpen(false);
+        fetchUsers();
       }
-      
-      resetForm();
-      setIsModalOpen(false);
-      fetchUsers();
     } catch (err) {
-      console.error('User save error:', err);
-      toaster.create({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Failed to save user',
-        type: 'error',
-        duration: 3000,
+      console.error('[DEBUG] handleSubmit: ERROR occurred during user update');
+      console.error('[DEBUG] handleSubmit: Error type:', err instanceof Error ? 'Error' : typeof err);
+      console.error('[DEBUG] handleSubmit: Error message:', err instanceof Error ? err.message : err);
+      console.error('[DEBUG] handleSubmit: Full error object:', err);
+      console.error('[DEBUG] handleSubmit: Stack trace:', err instanceof Error ? err.stack : 'N/A');
+
+      // Show error modal
+      setResultModal({
+        isOpen: true,
+        success: false,
+        message: err instanceof Error ? err.message : 'Failed to save user'
       });
+
+      setIsModalOpen(false);
     }
   };
 
@@ -198,7 +253,8 @@ const AdminUser: React.FC = () => {
       date_of_birth: user.date_of_birth || '',
       gender: user.gender,
       role: user.role,
-      status: user.status
+      status: user.status,
+      archive: user.archive
     });
     setIsEditing(true);
     setIsModalOpen(true);
@@ -215,10 +271,22 @@ const AdminUser: React.FC = () => {
       date_of_birth: '',
       gender: 'male',
       role: 'user',
-      status: 'active'
+      status: 'active',
+      archive: 0
     });
     setSelectedUser(null);
   };
+
+  // Filter users based on archive status
+  const filteredUsers = users.filter(user => {
+    if (archiveFilter === 'all') {
+      return true; // Show all users
+    } else if (archiveFilter === 'active') {
+      return user.archive === 0; // Show only active users
+    } else {
+      return user.archive === 1; // Show only archived users
+    }
+  });
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
@@ -252,12 +320,39 @@ const AdminUser: React.FC = () => {
             <VStack gap={8} align="stretch">
               {/* Welcome Section */}
               <Box>
-                <Heading className="admin-title" size="xl" mb={2}>
-                  User Management
-                </Heading>
-                <Text className="admin-subtitle">
-                  Manage user accounts, roles, and permissions.
-                </Text>
+                <Flex justify="space-between" align="center" mb={2}>
+                  <Box>
+                    <Heading className="admin-title" size="xl" mb={2}>
+                      User Management
+                    </Heading>
+                    <Text className="admin-subtitle">
+                      Manage user accounts, roles, and permissions.
+                    </Text>
+                  </Box>
+                  <HStack gap={3}>
+                    <Box minW="200px">
+                      <SelectRoot
+                        collection={createListCollection({ items: filterOptions })}
+                        value={[archiveFilter]}
+                        onValueChange={(details) => {
+                          const newFilter = details.value?.[0] as 'all' | 'active' | 'archived';
+                          setArchiveFilter(newFilter);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValueText placeholder="Filter users" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {filterOptions.map((option) => (
+                            <SelectItem key={option.value} item={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </SelectRoot>
+                    </Box>
+                  </HStack>
+                </Flex>
               </Box>
 
               {error && (
@@ -284,12 +379,13 @@ const AdminUser: React.FC = () => {
                     <th>Phone</th>
                     <th>Role</th>
                     <th>Status</th>
+                    <th>Archive</th>
                     <th>Created</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((user) => (
+                  {filteredUsers.map((user) => (
                     <tr key={user.id}>
                       <td className="admin-user-username">
                         {user.first_name} {user.last_name}
@@ -303,12 +399,21 @@ const AdminUser: React.FC = () => {
                         </span>
                       </td>
                       <td>
-                        <Badge 
+                        <Badge
                           className={`admin-badge-${
                             user.status === 'active' ? 'green' : 'orange'
                           }`}
                         >
                           {user.status}
+                        </Badge>
+                      </td>
+                      <td>
+                        <Badge
+                          className={`admin-badge-${
+                            user.archive === 0 ? 'green' : 'gray'
+                          }`}
+                        >
+                          {user.archive === 0 ? 'Active' : 'Archived'}
                         </Badge>
                       </td>
                       <td>{formatDate(user.created_at)}</td>
@@ -444,9 +549,9 @@ const AdminUser: React.FC = () => {
                 <HStack width="100%" gap={4}>
                   <Box flex="1">
                     <Text fontSize="sm" fontWeight="semibold" mb={2}>Gender</Text>
-                    <SelectRoot 
+                    <SelectRoot
                       collection={createListCollection({ items: genderOptions })}
-                      value={formData.gender ? [formData.gender] : []} 
+                      value={formData.gender ? [formData.gender] : []}
                       onValueChange={(details) => setFormData({ ...formData, gender: details.value?.[0] as 'male' | 'female' | 'non-binary' })}
                     >
                       <SelectTrigger>
@@ -463,9 +568,9 @@ const AdminUser: React.FC = () => {
                   </Box>
                   <Box flex="1">
                     <Text fontSize="sm" fontWeight="semibold" mb={2}>Role</Text>
-                    <SelectRoot 
+                    <SelectRoot
                       collection={createListCollection({ items: roleOptions })}
-                      value={formData.role ? [formData.role] : []} 
+                      value={formData.role ? [formData.role] : []}
                       onValueChange={(details) => setFormData({ ...formData, role: details.value?.[0] as 'admin' | 'user' })}
                     >
                       <SelectTrigger>
@@ -480,11 +585,14 @@ const AdminUser: React.FC = () => {
                       </SelectContent>
                     </SelectRoot>
                   </Box>
+                </HStack>
+
+                <HStack width="100%" gap={4}>
                   <Box flex="1">
                     <Text fontSize="sm" fontWeight="semibold" mb={2}>Status</Text>
-                    <SelectRoot 
+                    <SelectRoot
                       collection={createListCollection({ items: statusOptions })}
-                      value={formData.status ? [formData.status] : []} 
+                      value={formData.status ? [formData.status] : []}
                       onValueChange={(details) => setFormData({ ...formData, status: details.value?.[0] as 'active' | 'disable' })}
                     >
                       <SelectTrigger>
@@ -492,6 +600,28 @@ const AdminUser: React.FC = () => {
                       </SelectTrigger>
                       <SelectContent>
                         {statusOptions.map((option) => (
+                          <SelectItem key={option.value} item={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </SelectRoot>
+                  </Box>
+                  <Box flex="1">
+                    <Text fontSize="sm" fontWeight="semibold" mb={2}>Archive Status</Text>
+                    <SelectRoot
+                      collection={createListCollection({ items: archiveOptions })}
+                      value={formData.archive !== undefined ? [String(formData.archive)] : ['0']}
+                      onValueChange={(details) => {
+                        const newValue = parseInt(details.value?.[0] || '0') as 0 | 1;
+                        setFormData({ ...formData, archive: newValue });
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValueText placeholder="Select archive status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {archiveOptions.map((option) => (
                           <SelectItem key={option.value} item={option.value}>
                             {option.label}
                           </SelectItem>
@@ -518,6 +648,64 @@ const AdminUser: React.FC = () => {
                 </Button>
               </Flex>
             </form>
+          </Box>
+        </Box>
+      )}
+
+      {/* Result Modal */}
+      {resultModal.isOpen && (
+        <Box
+          position="fixed"
+          top="0"
+          left="0"
+          right="0"
+          bottom="0"
+          bg="rgba(0, 0, 0, 0.6)"
+          zIndex={1100}
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          p={4}
+          onClick={() => setResultModal({ isOpen: false, success: false, message: '' })}
+        >
+          <Box
+            className="admin-section"
+            maxWidth="500px"
+            width="100%"
+            bg="white"
+            borderRadius="lg"
+            p={8}
+            textAlign="center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Icon */}
+            <Box fontSize="4xl" mb={4}>
+              {resultModal.success ? '✅' : '❌'}
+            </Box>
+
+            {/* Title */}
+            <Heading
+              size="lg"
+              mb={3}
+              color={resultModal.success ? 'green.600' : 'red.600'}
+            >
+              {resultModal.success ? 'Success!' : 'Error!'}
+            </Heading>
+
+            {/* Message */}
+            <Text fontSize="md" mb={6} color="gray.700">
+              {resultModal.message}
+            </Text>
+
+            {/* Close Button */}
+            <Button
+              className="admin-action-button"
+              size="lg"
+              onClick={() => setResultModal({ isOpen: false, success: false, message: '' })}
+              width="100%"
+            >
+              Close
+            </Button>
           </Box>
         </Box>
       )}
